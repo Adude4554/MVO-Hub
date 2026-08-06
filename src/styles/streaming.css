@@ -1,0 +1,141 @@
+.streaming-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.streaming-status-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.streaming-pill-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.streaming-status-pill {
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 999px;
+  color: var(--text-muted);
+  padding: 7px 10px;
+  font-size: 0.76rem;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.streaming-status-pill.detected {
+  border-color: rgba(34, 211, 238, 0.44);
+  color: var(--cyan);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.12);
+}
+
+.streaming-status-pill.missing {
+  border-color: rgba(248, 113, 113, 0.34);
+  color: #fca5a5;
+}
+
+.streaming-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(130px, 1fr));
+  gap: 10px;
+  min-width: 310px;
+}
+
+.streaming-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.scene-grid,
+.audio-mixer-grid,
+.creator-checklist {
+  display: grid;
+  gap: 10px;
+}
+
+.scene-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.scene-button,
+.mixer-strip,
+.creator-step {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.58);
+  padding: 13px;
+}
+
+.scene-button strong,
+.mixer-strip strong,
+.creator-step strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+
+.scene-button span,
+.mixer-strip span,
+.creator-step span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.mixer-meter {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  margin-top: 9px;
+}
+
+.mixer-meter div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.82), rgba(168, 85, 247, 0.82));
+}
+
+.stream-health-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stream-health-box {
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  border-radius: 16px;
+  background: rgba(8, 13, 28, 0.72);
+  padding: 14px;
+}
+
+.stream-health-box span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.stream-health-box strong {
+  display: block;
+  color: var(--text);
+  font-size: 1.2rem;
+  margin-top: 7px;
+}
+
+@media (max-width: 1100px) {
+  .streaming-status-card {
+    flex-direction: column;
+  }
+
+  .streaming-actions,
+  .streaming-grid,
+  .stream-health-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+}

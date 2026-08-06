@@ -1,0 +1,101 @@
+.tool-manager {
+  margin-top: 20px;
+}
+
+.tm-card {
+  padding: 24px;
+}
+
+.tm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.tm-system-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 0.82rem;
+  color: var(--dim-text);
+}
+
+.tm-system-info strong {
+  color: var(--text);
+}
+
+.tm-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.tm-tool-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tm-tool-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tm-tool-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.tm-status {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.tm-status.detected {
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+}
+
+.tm-status.running {
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+}
+
+.tm-status.missing {
+  background: rgba(250, 204, 21, 0.12);
+  color: #facc15;
+}
+
+.tm-status.unknown {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+}
+
+.tm-tool-path {
+  font-size: 0.72rem;
+  word-break: break-all;
+  margin: 0;
+}
+
+.tm-tool-purpose {
+  font-size: 0.78rem;
+  color: var(--dim);
+  margin: 0;
+}
+
+.tm-tool-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}

@@ -1,0 +1,77 @@
+@media (max-width: 1320px) {
+  .mvo-app {
+    grid-template-columns: 240px minmax(0, 1fr) 280px;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .mvo-app {
+    grid-template-columns: 230px minmax(0, 1fr);
+  }
+
+  .right-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .mvo-app {
+    grid-template-columns: 1fr;
+  }
+
+  .mvo-sidebar {
+    display: none;
+  }
+
+  .content-grid,
+  .module-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .top-hud,
+  .hero-card,
+  .bottom-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hud-status-grid {
+    justify-content: flex-start;
+  }
+
+  .hero-orb {
+    width: 112px;
+    height: 112px;
+  }
+
+  .hero-orb span {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 620px) {
+  .mvo-app {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .top-hud,
+  .hero-card,
+  .large-card,
+  .compact-card,
+  .activity-card {
+    border-radius: 18px;
+  }
+
+  .hud-pill {
+    width: 100%;
+  }
+}

@@ -1,0 +1,120 @@
+.mvo-app {
+  position: relative;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 310px;
+  gap: 14px;
+  width: 100vw;
+  height: 100vh;
+  padding: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(24, 217, 255, 0.2), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(110, 92, 255, 0.18), transparent 34%),
+    linear-gradient(135deg, #040712, #07101d 48%, #04070f);
+}
+
+.profile-violet {
+  --accent: #a56cff;
+  --accent-soft: rgba(165, 108, 255, 0.2);
+  --line-bright: rgba(190, 145, 255, 0.42);
+}
+
+.profile-blue {
+  --accent: #4f8dff;
+  --accent-soft: rgba(79, 141, 255, 0.2);
+  --line-bright: rgba(104, 164, 255, 0.42);
+}
+
+.cyber-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.58;
+  background-image:
+    linear-gradient(rgba(125, 220, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 220, 255, 0.055) 1px, transparent 1px),
+    radial-gradient(circle at 20% 20%, var(--accent-soft), transparent 22%),
+    radial-gradient(circle at 82% 72%, rgba(255, 255, 255, 0.055), transparent 18%);
+  background-size: 42px 42px, 42px 42px, auto, auto;
+  mask-image: radial-gradient(circle at center, black, transparent 82%);
+}
+
+.mvo-sidebar,
+.main-frame,
+.right-panel {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+}
+
+.mvo-sidebar,
+.right-panel,
+.top-hud,
+.bottom-bar,
+.glass-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(18px);
+}
+
+.mvo-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.main-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  min-width: 0;
+}
+
+.page-scroll-shell {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 3px;
+  overscroll-behavior: contain;
+}
+
+.page-content {
+  display: grid;
+  gap: 14px;
+  min-height: 100%;
+}
+
+.right-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 14px;
+  border-radius: var(--radius-xl);
+  padding: 14px;
+  overflow: hidden;
+}
+
+.nav-stack,
+.activity-list,
+.page-scroll-shell {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 220, 255, 0.28) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(125, 220, 255, 0.24);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(125, 220, 255, 0.38);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

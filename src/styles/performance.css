@@ -1,0 +1,80 @@
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.live-card {
+  padding: 16px;
+}
+
+.live-card h3 {
+  margin: 0 0 8px;
+}
+
+.live-card strong {
+  display: block;
+  color: var(--accent);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.live-card span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.perf-bars {
+  display: flex;
+  align-items: end;
+  gap: 5px;
+  height: 150px;
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.028);
+  overflow: hidden;
+}
+
+.perf-bars span {
+  flex: 1;
+  min-width: 4px;
+  border-radius: 999px 999px 4px 4px;
+  background: linear-gradient(180deg, var(--accent), rgba(255, 255, 255, 0.08));
+  box-shadow: 0 0 12px var(--accent-soft);
+  opacity: 0.88;
+  transition: height 0.22s ease;
+}
+
+.stacked-graphs {
+  display: grid;
+  gap: 14px;
+}
+
+.stacked-graphs > div > span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.stacked-graphs .perf-bars {
+  height: 92px;
+  margin-top: 8px;
+}
+
+@media (max-width: 1320px) {
+  .performance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .performance-grid {
+    grid-template-columns: 1fr;
+  }
+}

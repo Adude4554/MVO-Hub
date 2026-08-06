@@ -1,0 +1,78 @@
+.optimizer-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.optimizer-status-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.optimizer-status-card h3 {
+  margin: 4px 0 8px;
+}
+
+.optimizer-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.optimizer-action-card {
+  border: 1px solid rgba(117, 234, 255, 0.14);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(6, 14, 28, 0.52);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 170px;
+}
+
+.optimizer-action-card h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.optimizer-action-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+  flex: 1;
+}
+
+.optimizer-action-card .action-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.safety-note-list {
+  display: grid;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.safety-note-list span {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+@media (max-width: 1200px) {
+  .optimizer-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .optimizer-status-card {
+    flex-direction: column;
+  }
+
+  .optimizer-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
