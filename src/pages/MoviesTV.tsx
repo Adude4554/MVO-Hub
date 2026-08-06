@@ -206,11 +206,11 @@ export function MoviesTV() {
     return m.title.toLowerCase().includes(search.toLowerCase());
   });
 
-  // Player view
+// Player view
   if (selectedItem) {
     return (
-      <div className="flex flex-col" style={{ height: 'calc(100vh - 130px)' }}>
-        <div className="flex items-center gap-3 flex-shrink-0">
+      <div className="space-y-4 h-full flex flex-col">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => { setSelectedItem(null); setSelectedEmbed(''); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-mvo-panel border border-mvo-border/50 hover:bg-mvo-panelHover text-mvo-text text-sm transition-all"
@@ -220,7 +220,7 @@ export function MoviesTV() {
           <h2 className="font-display text-lg font-bold text-mvo-text truncate">{cleanTitle(selectedItem.title)}</h2>
           <span className="px-2 py-0.5 rounded text-xs font-bold bg-cyan-400/20 text-cyan-400">{selectedItem.quality}</span>
         </div>
-        <div className="flex-1 min-h-0 mt-3 rounded-xl overflow-hidden border border-mvo-border/30">
+        <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-mvo-border/30">
           <iframe
             src={selectedEmbed}
             className="w-full h-full border-0"

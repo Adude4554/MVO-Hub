@@ -101,27 +101,27 @@ function App() {
   }, [play]);
 
   const PageComponent = useMemo(() => {
-    const pageMap: Record<string, React.FC<any>> = {
-      dashboard: Dashboard,
-      gamelibrary: GameLibrary,
-      gamevault: GameVault,
-      optimizer: Optimizer,
-      performance: Performance,
-      systemboost: SystemBoost,
-      aitools: AITools,
-      overlay: Overlay,
-      streaming: Streaming,
-      files: Files,
-      webhub: WebHub,
-      tools: Tools,
-      settings: Settings,
-      functiontest: FunctionTest,
-      updates: Updates,
-      globalchat: GlobalChat,
-      moviestv: MoviesTV,
-      movies: MoviesTV,
-      tv: MoviesTV,
-    };
+const pageMap: Record<string, React.FC<any>> = {
+  dashboard: Dashboard,
+  gamelibrary: GameLibrary,
+  gamevault: GameVault,
+  optimizer: Optimizer,
+  performance: Performance,
+  systemboost: SystemBoost,
+  aitools: AITools,
+  overlay: Overlay,
+  streaming: Streaming,
+  files: Files,
+  webhub: WebHub,
+  tools: Tools,
+  settings: Settings,
+  functiontest: FunctionTest,
+  updates: Updates,
+  globalchat: GlobalChat,
+  moviestv: MoviesTV,
+  movies: MoviesTV,
+  tv: MoviesTV,
+};
     return pageMap[activePage] || Dashboard;
   }, [activePage]);
 

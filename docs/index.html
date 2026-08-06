@@ -3,1107 +3,446 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MVO Hub — Your Gaming Command Center</title>
-  <meta name="description" content="MVO Hub — The ultimate gaming command center. Manage games, stream movies & TV shows, optimize performance, and more.">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%2300d4ff'/><stop offset='100%25' stop-color='%237c3aed'/></linearGradient></defs><rect width='100' height='100' rx='20' fill='url(%23g)'/><text x='50' y='68' font-family='Arial' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>M</text></svg>">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <title>MVO Hub - Universal Game Discovery Engine</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-    :root {
-      --cyan: #00d4ff;
-      --purple: #7c3aed;
-      --pink: #ec4899;
-      --bg: #0a0f1a;
-      --bg2: #111827;
-      --bg3: #1a2235;
-      --text: #e5e7eb;
-      --text-dim: #9ca3af;
-      --border: rgba(255,255,255,0.06);
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
 
-    html { scroll-behavior: smooth; }
+    :root {
+      --primary: #00d4ff;
+      --secondary: #7c3aed;
+      --accent: #ec4899;
+      --dark: #0a0f1a;
+      --dark-2: #111827;
+      --bg: #0a0f1a;
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --border: rgba(255, 255, 255, 0.06);
+    }
 
     body {
       font-family: 'Inter', -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
+      min-height: 100vh;
       overflow-x: hidden;
-      line-height: 1.6;
-    }
-
-    /* ========== ANIMATED BACKGROUND ========== */
-    .bg-grid {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      background-image:
-        linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
-      background-size: 60px 60px;
-      animation: gridMove 20s linear infinite;
-    }
-    @keyframes gridMove {
-      0% { transform: translate(0, 0); }
-      100% { transform: translate(60px, 60px); }
-    }
-
-    .bg-orbs {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      overflow: hidden;
-    }
-    .orb {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.15;
-      animation: orbFloat 12s ease-in-out infinite;
-    }
-    .orb-1 { width: 500px; height: 500px; background: var(--cyan); top: -10%; left: -5%; animation-delay: 0s; }
-    .orb-2 { width: 400px; height: 400px; background: var(--purple); top: 30%; right: -10%; animation-delay: -4s; }
-    .orb-3 { width: 350px; height: 350px; background: var(--pink); bottom: -5%; left: 20%; animation-delay: -8s; }
-    @keyframes orbFloat {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(30px, -20px) scale(1.05); }
-      66% { transform: translate(-20px, 30px) scale(0.95); }
     }
 
     /* ========== NAVBAR ========== */
-    nav {
+    .navbar {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      z-index: 100;
       padding: 1rem 2rem;
+      background: rgba(10, 15, 26, 0.9);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      backdrop-filter: blur(20px);
-      background: rgba(10, 15, 26, 0.8);
+      z-index: 1000;
       border-bottom: 1px solid var(--border);
       transition: all 0.3s;
     }
-    nav.scrolled { background: rgba(10, 15, 26, 0.95); box-shadow: 0 4px 30px rgba(0,0,0,0.3); }
 
-    .nav-logo {
+    .navbar .logo {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      text-decoration: none;
-    }
-    .nav-logo-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--purple));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 1.1rem;
-      color: white;
-    }
-    .nav-logo-text {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: white;
-      letter-spacing: -0.02em;
+      gap: 1rem;
     }
 
-    .nav-links { display: flex; gap: 2rem; align-items: center; }
-    .nav-links a {
-      color: var(--text-dim);
+    .nav-link {
+      color: var(--text);
       text-decoration: none;
-      font-size: 0.9rem;
       font-weight: 500;
-      transition: color 0.2s;
+      margin-right: 1.5rem;
+      position: relative;
     }
-    .nav-links a:hover { color: var(--cyan); }
+
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 2px;
+      bottom: -4px;
+      background: var(--cyan);
+      transition: width 0.3s;
+    }
+
+    .nav-link:hover {
+      color: var(--cyan);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+    }
 
     .nav-download {
-      padding: 0.6rem 1.5rem;
-      border-radius: 10px;
+      padding: 0.5rem 1.5rem;
+      border-radius: 8px;
       background: linear-gradient(135deg, var(--cyan), var(--purple));
       color: white;
       font-weight: 600;
-      font-size: 0.9rem;
-      text-decoration: none;
-      transition: all 0.3s;
       border: none;
       cursor: pointer;
+      transition: all 0.3s;
     }
-    .nav-download:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,212,255,0.3); }
 
-    /* ========== HERO ========== */
+    .nav-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+    }
+
+    /* ========== HERO SECTION ========== */
     .hero {
-      position: relative;
-      z-index: 1;
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 8rem 2rem 4rem;
+      padding: 2rem;
+      position: relative;
     }
 
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.4rem 1rem;
-      border-radius: 999px;
-      background: rgba(0,212,255,0.1);
-      border: 1px solid rgba(0,212,255,0.2);
-      color: var(--cyan);
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-bottom: 2rem;
-      animation: fadeInUp 0.8s ease-out;
-    }
-    .hero-badge .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--cyan);
-      animation: pulse 2s ease-in-out infinite;
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(0, 212, 255, 0.05) 0%, transparent 70%);
+      z-index: -1;
     }
 
     .hero h1 {
-      font-size: clamp(2.5rem, 6vw, 5rem);
-      font-weight: 900;
-      line-height: 1.1;
-      letter-spacing: -0.03em;
+      font-size: 3.5rem;
+      font-weight: 800;
+      color: white;
       margin-bottom: 1.5rem;
-      animation: fadeInUp 0.8s ease-out 0.1s both;
+      text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+      animation: pulse 3s infinite;
     }
-    .hero h1 .gradient {
-      background: linear-gradient(135deg, var(--cyan), var(--purple), var(--pink));
+
+    .hero h1 .highlight {
+      background: linear-gradient(45deg, var(--cyan), var(--purple), var(--accent));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: transparent;
     }
 
     .hero p {
-      font-size: 1.2rem;
-      color: var(--text-dim);
+      font-size: 1.5rem;
+      color: var(--text-muted);
       max-width: 600px;
-      margin-bottom: 2.5rem;
-      animation: fadeInUp 0.8s ease-out 0.2s both;
+      margin-bottom: 2rem;
+      animation: fadeIn 1s ease-out;
     }
 
-    .hero-buttons {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      justify-content: center;
-      animation: fadeInUp 0.8s ease-out 0.3s both;
-    }
-
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem 2.5rem;
-      border-radius: 14px;
+    .hero-button {
+      display: inline-block;
+      padding: 1rem 3rem;
       background: linear-gradient(135deg, var(--cyan), var(--purple));
       color: white;
+      border-radius: 50px;
+      font-size: 1.1rem;
       font-weight: 700;
-      font-size: 1.05rem;
       text-decoration: none;
       transition: all 0.3s;
       border: none;
       cursor: pointer;
-      position: relative;
-      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
     }
-    .btn-primary::before {
+
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+    }
+
+    .btn:hover::after {
       content: '';
       position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, var(--purple), var(--pink));
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .btn-primary:hover::before { opacity: 1; }
-    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(0,212,255,0.4); }
-    .btn-primary span { position: relative; z-index: 1; display: flex; align-items: center; gap: 0.75rem; }
-
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem 2rem;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: var(--text);
-      font-weight: 600;
-      font-size: 1rem;
-      text-decoration: none;
-      transition: all 0.3s;
-      cursor: pointer;
-    }
-    .btn-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
-
-    .hero-version {
-      margin-top: 1rem;
-      font-size: 0.8rem;
-      color: var(--text-dim);
-      animation: fadeInUp 0.8s ease-out 0.4s both;
-    }
-
-    /* ========== APP MOCKUP ========== */
-    .mockup-section {
-      position: relative;
-      z-index: 1;
-      padding: 2rem 2rem 6rem;
-      display: flex;
-      justify-content: center;
-    }
-
-    .mockup-container {
-      position: relative;
-      max-width: 1100px;
-      width: 100%;
-      animation: fadeInUp 1s ease-out 0.5s both;
-    }
-
-    .mockup-window {
-      border-radius: 16px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.1);
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,0.05),
-        0 25px 60px rgba(0,0,0,0.5),
-        0 0 120px rgba(0,212,255,0.1);
-      background: var(--bg2);
-    }
-
-    .mockup-titlebar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      background: rgba(0,0,0,0.3);
-      border-bottom: 1px solid var(--border);
-    }
-    .mockup-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-    .mockup-dot.red { background: #ff5f57; }
-    .mockup-dot.yellow { background: #febc2e; }
-    .mockup-dot.green { background: #28c840; }
-    .mockup-titlebar-text {
-      flex: 1;
-      text-align: center;
-      font-size: 0.8rem;
-      color: var(--text-dim);
-      font-weight: 500;
-    }
-
-    .mockup-content {
-      aspect-ratio: 16 / 9;
-      background: linear-gradient(135deg, #0d1525, #111827);
-      display: grid;
-      grid-template-columns: 250px 1fr;
-      overflow: hidden;
-    }
-
-    .mockup-sidebar {
-      background: rgba(0,0,0,0.2);
-      border-right: 1px solid var(--border);
-      padding: 1rem;
-    }
-    .mockup-sidebar-item {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      padding: 0.5rem 0.75rem;
-      border-radius: 8px;
-      margin-bottom: 0.25rem;
-      font-size: 0.75rem;
-      color: var(--text-dim);
-    }
-    .mockup-sidebar-item.active {
-      background: rgba(0,212,255,0.1);
-      color: var(--cyan);
-      border: 1px solid rgba(0,212,255,0.2);
-    }
-    .mockup-sidebar-icon {
-      width: 18px;
-      height: 18px;
-      border-radius: 5px;
-      background: rgba(255,255,255,0.08);
-      flex-shrink: 0;
-    }
-    .mockup-sidebar-item.active .mockup-sidebar-icon { background: rgba(0,212,255,0.2); }
-
-    .mockup-main {
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .mockup-stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0.75rem;
-    }
-    .mockup-stat {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.75rem;
-      text-align: center;
-    }
-    .mockup-stat-ring {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      margin: 0 auto 0.4rem;
-      border: 3px solid rgba(255,255,255,0.08);
-      position: relative;
-    }
-    .mockup-stat-ring::after {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: 50%;
-      border: 3px solid transparent;
-    }
-    .mockup-stat-ring.cyan::after { border-top-color: var(--cyan); border-right-color: var(--cyan); }
-    .mockup-stat-ring.purple::after { border-top-color: var(--purple); border-right-color: var(--purple); border-bottom-color: var(--purple); }
-    .mockup-stat-ring.pink::after { border-top-color: var(--pink); }
-    .mockup-stat-ring.green::after { border-top-color: #22c55e; border-right-color: #22c55e; border-bottom-color: #22c55e; border-left-color: #22c55e; }
-
-    .mockup-stat-value {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: white;
-    }
-    .mockup-stat-label {
-      font-size: 0.6rem;
-      color: var(--text-dim);
-      margin-top: 0.15rem;
-    }
-
-    .mockup-games {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.75rem;
-      flex: 1;
-    }
-    .mockup-game {
-      border-radius: 10px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      position: relative;
-    }
-    .mockup-game-bg {
-      aspect-ratio: 16/10;
-      background: linear-gradient(135deg, var(--bg3), var(--bg2));
-    }
-    .mockup-game-bg.g1 { background: linear-gradient(135deg, #1a1a2e, #16213e); }
-    .mockup-game-bg.g2 { background: linear-gradient(135deg, #0f3460, #1a1a2e); }
-    .mockup-game-bg.g3 { background: linear-gradient(135deg, #1a1a2e, #533483); }
-    .mockup-game-title {
-      padding: 0.5rem;
-      font-size: 0.65rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .glow-line {
-      position: absolute;
-      bottom: 0;
+      top: 0;
       left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--cyan), var(--purple), transparent);
-      animation: glowSlide 3s ease-in-out infinite;
-    }
-    @keyframes glowSlide {
-      0%, 100% { opacity: 0.3; transform: scaleX(0.5); }
-      50% { opacity: 1; transform: scaleX(1); }
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, transparent, var(--cyan), transparent);
+      z-index: -1;
     }
 
     /* ========== FEATURES ========== */
-    .section {
-      position: relative;
-      z-index: 1;
-      padding: 6rem 2rem;
+    .features {
+      padding: 5rem 2rem;
       max-width: 1200px;
       margin: 0 auto;
     }
 
-    .section-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.3rem 0.8rem;
-      border-radius: 999px;
-      background: rgba(0,212,255,0.08);
-      border: 1px solid rgba(0,212,255,0.15);
-      color: var(--cyan);
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 1rem;
+    .section-title {
+      text-align: center;
+      margin-bottom: 3rem;
     }
 
-    .section-title {
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: 800;
-      letter-spacing: -0.02em;
+    .section-title h2 {
+      font-size: 2.5rem;
+      color: white;
       margin-bottom: 1rem;
     }
 
     .section-desc {
       font-size: 1.1rem;
-      color: var(--text-dim);
-      max-width: 600px;
-      margin-bottom: 3rem;
+      color: var(--text-muted);
+      max-width: 800px;
+      margin: 0 auto 3rem;
+      text-align: center;
     }
 
     .features-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
     }
 
     .feature-card {
-      padding: 2rem;
+      background: rgba(255, 255, 255, 0.03);
       border-radius: 16px;
-      background: rgba(255,255,255,0.02);
+      padding: 2rem;
       border: 1px solid var(--border);
       transition: all 0.3s;
       position: relative;
-      overflow: hidden;
     }
-    .feature-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, var(--cyan), var(--purple));
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
+
     .feature-card:hover {
-      border-color: rgba(0,212,255,0.2);
-      background: rgba(0,212,255,0.03);
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+      background: rgba(0, 212, 255, 0.05);
     }
-    .feature-card:hover::before { opacity: 1; }
 
     .feature-icon {
-      width: 50px;
-      height: 50px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      margin-bottom: 1.25rem;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
     }
-    .feature-icon.cyan { background: rgba(0,212,255,0.1); color: var(--cyan); }
-    .feature-icon.purple { background: rgba(124,58,237,0.1); color: var(--purple); }
-    .feature-icon.pink { background: rgba(236,72,153,0.1); color: var(--pink); }
-    .feature-icon.green { background: rgba(34,197,94,0.1); color: #22c55e; }
-    .feature-icon.orange { background: rgba(249,115,22,0.1); color: #f97316; }
-    .feature-icon.blue { background: rgba(59,130,246,0.1); color: #3b82f6; }
 
     .feature-card h3 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
       color: white;
+      margin-bottom: 0.75rem;
     }
 
     .feature-card p {
-      font-size: 0.9rem;
-      color: var(--text-dim);
+      color: var(--text-muted);
       line-height: 1.6;
     }
 
-    /* ========== WHY US ========== */
-    .why-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-      margin-top: 2rem;
-    }
-
-    .why-card {
-      padding: 1.5rem;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.02);
-      border: 1px solid var(--border);
-      display: flex;
-      gap: 1rem;
-      align-items: flex-start;
-      transition: all 0.3s;
-    }
-    .why-card:hover {
-      border-color: rgba(124,58,237,0.3);
-      background: rgba(124,58,237,0.03);
-      transform: translateY(-2px);
-    }
-
-    .why-number {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--purple));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 0.9rem;
-      color: white;
-      flex-shrink: 0;
-    }
-
-    .why-card h4 {
-      font-size: 1rem;
-      font-weight: 700;
-      margin-bottom: 0.3rem;
-      color: white;
-    }
-
-    .why-card p {
-      font-size: 0.85rem;
-      color: var(--text-dim);
-    }
-
     /* ========== SCREENSHOTS ========== */
-    .screenshots-row {
+    .screenshots {
       display: flex;
-      gap: 1.5rem;
+      justify-content: center;
+      gap: 2rem;
+      padding: 3rem 2rem;
       overflow-x: auto;
-      padding: 1rem 0 2rem;
-      scroll-snap-type: x mandatory;
     }
-    .screenshots-row::-webkit-scrollbar { height: 6px; }
-    .screenshots-row::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 3px; }
-    .screenshots-row::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.3); border-radius: 3px; }
 
     .screenshot-card {
-      flex: 0 0 400px;
-      scroll-snap-align: start;
-      border-radius: 14px;
-      overflow: hidden;
+      flex: 0 0 300px;
+      border-radius: 16px;
       border: 1px solid var(--border);
-      background: var(--bg2);
+      background: var(--bg);
+      padding: 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
       transition: all 0.3s;
     }
+
     .screenshot-card:hover {
-      border-color: rgba(0,212,255,0.3);
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
     }
+
     .screenshot-img {
-      aspect-ratio: 16/10;
-      background: linear-gradient(135deg, var(--bg3), var(--bg));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-    }
-    .screenshot-placeholder {
-      font-size: 3rem;
-      opacity: 0.3;
-    }
-    .screenshot-label {
-      padding: 0.75rem 1rem;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text);
-      border-top: 1px solid var(--border);
-    }
-
-    /* ========== CTA ========== */
-    .cta {
-      position: relative;
-      z-index: 1;
-      padding: 6rem 2rem;
-      text-align: center;
-    }
-
-    .cta-box {
-      max-width: 700px;
-      margin: 0 auto;
-      padding: 4rem 3rem;
-      border-radius: 24px;
-      background: linear-gradient(135deg, rgba(0,212,255,0.05), rgba(124,58,237,0.05));
-      border: 1px solid rgba(0,212,255,0.15);
-      position: relative;
-      overflow: hidden;
-    }
-    .cta-box::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: conic-gradient(from 0deg, transparent, rgba(0,212,255,0.1), transparent, rgba(124,58,237,0.1), transparent);
-      animation: ctaRotate 8s linear infinite;
-    }
-    @keyframes ctaRotate { 100% { transform: rotate(360deg); } }
-
-    .cta-content {
-      position: relative;
-      z-index: 1;
-    }
-
-    .cta h2 {
-      font-size: 2.5rem;
-      font-weight: 800;
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 12px;
       margin-bottom: 1rem;
-      letter-spacing: -0.02em;
     }
 
-    .cta p {
-      font-size: 1.1rem;
-      color: var(--text-dim);
-      margin-bottom: 2rem;
-    }
-
-    .download-stats {
-      display: flex;
-      justify-content: center;
-      gap: 3rem;
-      margin-top: 2rem;
-    }
-    .download-stat {
+    .screenshot-label {
       text-align: center;
-    }
-    .download-stat-value {
-      font-size: 1.5rem;
-      font-weight: 800;
-      color: var(--cyan);
-    }
-    .download-stat-label {
-      font-size: 0.8rem;
-      color: var(--text-dim);
-      margin-top: 0.25rem;
+      color: var(--text);
+      font-size: 1rem;
+      margin-top: 0.5rem;
     }
 
     /* ========== FOOTER ========== */
     footer {
-      position: relative;
-      z-index: 1;
-      padding: 3rem 2rem;
-      border-top: 1px solid var(--border);
       text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
     }
-    footer p {
-      font-size: 0.85rem;
-      color: var(--text-dim);
-    }
-    footer a {
-      color: var(--cyan);
-      text-decoration: none;
-    }
-    footer a:hover { text-decoration: underline; }
 
     /* ========== ANIMATIONS ========== */
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(30px); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.8); }
-    }
-
-    .reveal {
-      opacity: 0;
-      transform: translateY(40px);
-      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* ========== RESPONSIVE ========== */
-    @media (max-width: 768px) {
-      nav { padding: 0.75rem 1rem; }
-      .nav-links { display: none; }
-      .mockup-content { grid-template-columns: 1fr; }
-      .mockup-sidebar { display: none; }
-      .mockup-stats { grid-template-columns: repeat(2, 1fr); }
-      .mockup-games { grid-template-columns: repeat(2, 1fr); }
-      .hero { padding: 6rem 1rem 3rem; }
-      .section { padding: 4rem 1rem; }
-      .cta-box { padding: 2.5rem 1.5rem; }
-      .screenshot-card { flex: 0 0 300px; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <div class="bg-grid"></div>
-  <div class="bg-orbs">
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
-  </div>
-
-  <!-- NAVBAR -->
-  <nav id="navbar">
-    <a href="#" class="nav-logo">
+  <nav class="navbar">
+    <div class="nav-logo">
       <div class="nav-logo-icon">M</div>
-      <span class="nav-logo-text">MVO Hub</span>
-    </a>
-    <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#why">Why MVO</a>
-      <a href="#screenshots">Screenshots</a>
+      <span>MVO Hub</span>
     </div>
-    <a href="https://github.com/Adude4554/MVO-Hub/releases/latest/download/MVO.Beta_0.1.3_x64-setup.exe" class="nav-download">
-      Download v0.1.3
-    </a>
+    <div class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#why" class="nav-link">Why MVO</a>
+      <a href="#screenshots" class="nav-link">Screenshots</a>
+    </div>
+    <a href="#" class="nav-download">Download & Install Update</a>
   </nav>
 
-  <!-- HERO -->
+  <!-- HERO SECTION -->
   <section class="hero">
     <div class="hero-badge">
       <span class="dot"></span>
-      v0.1.3 — Now with streaming
+      <span>v0.1.3</span>
     </div>
-    <h1>Your <span class="gradient">Gaming</span><br>Command Center</h1>
-    <p>Manage your game library, stream movies & TV shows, optimize system performance, and chat with friends — all in one beautiful app.</p>
+    <h1>Universal Game Discovery Engine</h1>
+    <p>A modern desktop application for discovering, streaming, and managing your games and media content.</p>
     <div class="hero-buttons">
-      <a href="https://github.com/Adude4554/MVO-Hub/releases/latest/download/MVO.Beta_0.1.3_x64-setup.exe" class="btn-primary">
-        <span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download for Windows
-        </span>
+      <a href="#" class="btn-primary">
+        <span>Download & Install Update</span>
       </a>
-      <a href="https://github.com/Adude4554/MVO-Hub" class="btn-secondary">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-        View on GitHub
-      </a>
-    </div>
-    <div class="hero-version">Windows 10/11 &bull; Free &bull; Open Source</div>
-  </section>
-
-  <!-- APP MOCKUP -->
-  <section class="mockup-section">
-    <div class="mockup-container">
-      <div class="mockup-window">
-        <div class="mockup-titlebar">
-          <div class="mockup-dot red"></div>
-          <div class="mockup-dot yellow"></div>
-          <div class="mockup-dot green"></div>
-          <span class="mockup-titlebar-text">MVO Hub — Dashboard</span>
-        </div>
-        <div class="mockup-content">
-          <div class="mockup-sidebar">
-            <div class="mockup-sidebar-item active">
-              <div class="mockup-sidebar-icon"></div>
-              <span>Dashboard</span>
-            </div>
-            <div class="mockup-sidebar-item">
-              <div class="mockup-sidebar-icon"></div>
-              <span>Movies & TV Shows</span>
-            </div>
-            <div class="mockup-sidebar-item">
-              <div class="mockup-sidebar-icon"></div>
-              <span>Game Library</span>
-            </div>
-            <div class="mockup-sidebar-item">
-              <div class="mockup-sidebar-icon"></div>
-              <span>Game Vault</span>
-            </div>
-            <div class="mockup-sidebar-item">
-              <div class="mockup-sidebar-icon"></div>
-              <span>Chat</span>
-            </div>
-            <div class="mockup-sidebar-item">
-              <div class="mockup-sidebar-icon"></div>
-              <span>Files</span>
-            </div>
-            <div class="mockup-sidebar-item">
-              <div class="mockup-sidebar-icon"></div>
-              <span>Optimizer</span>
-            </div>
-            <div class="mockup-sidebar-item">
-              <div class="mockup-sidebar-icon"></div>
-              <span>Settings</span>
-            </div>
-          </div>
-          <div class="mockup-main">
-            <div class="mockup-stats">
-              <div class="mockup-stat">
-                <div class="mockup-stat-ring cyan"></div>
-                <div class="mockup-stat-value">33%</div>
-                <div class="mockup-stat-label">CPU Usage</div>
-              </div>
-              <div class="mockup-stat">
-                <div class="mockup-stat-ring purple"></div>
-                <div class="mockup-stat-value">60%</div>
-                <div class="mockup-stat-label">Memory</div>
-              </div>
-              <div class="mockup-stat">
-                <div class="mockup-stat-ring green"></div>
-                <div class="mockup-stat-value">38°C</div>
-                <div class="mockup-stat-label">GPU Temp</div>
-              </div>
-              <div class="mockup-stat">
-                <div class="mockup-stat-ring pink"></div>
-                <div class="mockup-stat-value">Excellent</div>
-                <div class="mockup-stat-label">Health</div>
-              </div>
-            </div>
-            <div class="mockup-games">
-              <div class="mockup-game">
-                <div class="mockup-game-bg g1"></div>
-                <div class="mockup-game-title">Cyberpunk 2077</div>
-              </div>
-              <div class="mockup-game">
-                <div class="mockup-game-bg g2"></div>
-                <div class="mockup-game-title">Elden Ring</div>
-              </div>
-              <div class="mockup-game">
-                <div class="mockup-game-bg g3"></div>
-                <div class="mockup-game-title">Red Dead 2</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="glow-line"></div>
-      </div>
     </div>
   </section>
 
   <!-- FEATURES -->
   <section class="section" id="features">
-    <div class="reveal">
-      <div class="section-label">Features</div>
-      <h2 class="section-title">Everything you need</h2>
-      <p class="section-desc">MVO Hub combines gaming, streaming, system optimization, and social features into one powerful desktop app.</p>
+    <div class="section-title">
+      <h2>Why Choose MVO Hub?</h2>
+      <p class="section-desc">A powerful, all-in-one solution for game discovery, streaming, and desktop optimization.</p>
     </div>
+    
     <div class="features-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon cyan">🎮</div>
+      <div class="feature-card">
+        <div class="feature-icon">🎮</div>
         <h3>Game Library</h3>
-        <p>Auto-scan your PC for installed games. Track play time, manage shortcuts, and launch directly from MVO Hub.</p>
+        <p>Auto-scan your installed games and manage them with ease. Track progress, launch games, and discover new titles.</p>
       </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon purple">🎬</div>
+      <div class="feature-card">
+        <div class="feature-icon">🎬</div>
         <h3>Movies & TV Shows</h3>
-        <p>Stream thousands of movies and TV shows for free. Built-in player with TMDB posters and curated collections.</p>
+        <p>Stream movies and TV shows with high-quality artwork and seamless playback.</p>
       </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon pink">⚡</div>
-        <h3>System Optimizer</h3>
-        <p>Clean RAM, boost performance, and optimize your PC for gaming with one-click system tools.</p>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Performance Optimizer</h3>
+        <p>Optimize your system for gaming with real-time monitoring and one-click boosts.</p>
       </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon green">📊</div>
-        <h3>Real-time Monitoring</h3>
-        <p>Monitor CPU, GPU, RAM, and disk usage in real-time. NVIDIA GPU details with temperature and power.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon orange">💬</div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
         <h3>Global Chat</h3>
-        <p>Connect with the community. Join servers, share images, and chat in real-time with online users.</p>
+        <p>Join communities, share media, and chat with gamers worldwide.</p>
       </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon blue">🎯</div>
-        <h3>Game Vault</h3>
-        <p>Discover and download new games. Browse the store, track downloads, and manage your collection.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- WHY CHOOSE US -->
-  <section class="section" id="why">
-    <div class="reveal">
-      <div class="section-label">Why MVO</div>
-      <h2 class="section-title">Why choose MVO Hub?</h2>
-      <p class="section-desc">Built by gamers, for gamers. Here's what makes MVO Hub different.</p>
-    </div>
-    <div class="why-grid">
-      <div class="why-card reveal">
-        <div class="why-number">1</div>
-        <div>
-          <h4>All-in-One</h4>
-          <p>Game management, streaming, optimization, and chat — no need for 5 different apps.</p>
-        </div>
-      </div>
-      <div class="why-card reveal">
-        <div class="why-number">2</div>
-        <div>
-          <h4>Blazing Fast</h4>
-          <p>Built with Tauri for native performance. Tiny footprint, instant startup, zero bloat.</p>
-        </div>
-      </div>
-      <div class="why-card reveal">
-        <div class="why-number">3</div>
-        <div>
-          <h4>Beautiful UI</h4>
-          <p>Modern glassmorphism design with smooth animations. Dark theme that's easy on the eyes.</p>
-        </div>
-      </div>
-      <div class="why-card reveal">
-        <div class="why-number">4</div>
-        <div>
-          <h4>Auto Updates</h4>
-          <p>Seamless updates via GitHub Releases. Always running the latest version with one click.</p>
-        </div>
-      </div>
-      <div class="why-card reveal">
-        <div class="why-number">5</div>
-        <div>
-          <h4>100% Free</h4>
-          <p>No subscriptions, no ads, no tracking. Open source and free forever.</p>
-        </div>
-      </div>
-      <div class="why-card reveal">
-        <div class="why-number">6</div>
-        <div>
-          <h4>Multi-language</h4>
-          <p>Supports English, Arabic, German, Spanish, and French with RTL layout support.</p>
-        </div>
+      <div class="feature-card">
+        <div class="feature-icon">🛠️</div>
+        <h3>Tools & Utilities</h3>
+        <p>Access system tools, file management, and utility functions in one place.</p>
       </div>
     </div>
   </section>
 
   <!-- SCREENSHOTS -->
   <section class="section" id="screenshots">
-    <div class="reveal">
-      <div class="section-label">Screenshots</div>
-      <h2 class="section-title">See it in action</h2>
-      <p class="section-desc">Explore the sleek interface and powerful features of MVO Hub.</p>
+    <div class="section-title">
+      <h2>See MVO Hub in Action</h2>
+      <p class="section-desc">Experience the sleek interface and powerful features.</p>
     </div>
-    <div class="screenshots-row reveal">
+    
+    <div class="screenshots">
       <div class="screenshot-card">
-        <div class="screenshot-img" style="background: linear-gradient(135deg, #0d1525, #1a2744);">
-          <div class="screenshot-placeholder">📊</div>
+        <div class="screenshot-img" style="background: linear-gradient(135deg, #0d1524, #1a2744);">
+          <div class="screenshot-placeholder"></div>
         </div>
-        <div class="screenshot-label">Dashboard — System Overview</div>
+        <div class="screenshot-label">Dashboard - System Overview</div>
+      </div>
+      
+      <div class="screenshot-card">
+        <div class="screenshot-img" style="background: linear-gradient(135deg, #0c1222, #1a1a3c);">
+          <div class="screenshot-placeholder"></div>
+        </div>
+        <div class="screenshot-label">Game Library - Your Collection</div>
+      </div>
+      
+      <div class="screenshot-card">
+        <div class="screenshot-img" style="background: linear-gradient(135deg, #0c1222, #1a1a3c);">
+          <div class="screenshot-placeholder"></div>
+        </div>
+        <div class="screenshot-label">Movies & TV Shows - Streaming Interface</div>
       </div>
       <div class="screenshot-card">
-        <div class="screenshot-img" style="background: linear-gradient(135deg, #0f172a, #1e1b4b);">
-          <div class="screenshot-placeholder">🎮</div>
+        <div class="screenshot-img" style="background: linear-gradient(135deg, #0d0f1a, #1a1a3c);">
+          <div class="screenshot-placeholder"></div>
         </div>
-        <div class="screenshot-label">Game Library — Your Collection</div>
-      </div>
-      <div class="screenshot-card">
-        <div class="screenshot-img" style="background: linear-gradient(135deg, #0c1222, #1a0a2e);">
-          <div class="screenshot-placeholder">🎬</div>
-        </div>
-        <div class="screenshot-label">Movies & TV — Stream Content</div>
-      </div>
-      <div class="screenshot-card">
-        <div class="screenshot-img" style="background: linear-gradient(135deg, #0a1628, #0f2940);">
-          <div class="screenshot-placeholder">💬</div>
-        </div>
-        <div class="screenshot-label">Global Chat — Connect</div>
-      </div>
-      <div class="screenshot-card">
-        <div class="screenshot-img" style="background: linear-gradient(135deg, #0d0f1a, #1a1a2e);">
-          <div class="screenshot-placeholder">⚡</div>
-        </div>
-        <div class="screenshot-label">Optimizer — Boost Performance</div>
+        <div class="screenshot-label">Global Chat - Social Features</div>
       </div>
     </div>
   </section>
 
-  <!-- CTA -->
+  <!-- CTA SECTION -->
   <section class="cta">
-    <div class="cta-box reveal">
-      <div class="cta-content">
-        <h2>Ready to level up?</h2>
-        <p>Download MVO Hub for free and take control of your gaming experience.</p>
-        <a href="https://github.com/Adude4554/MVO-Hub/releases/latest/download/MVO.Beta_0.1.3_x64-setup.exe" class="btn-primary">
-          <span>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download MVO Hub v0.1.3
-          </span>
-        </a>
-        <div class="download-stats">
-          <div class="download-stat">
-            <div class="download-stat-value">5.3 MB</div>
-            <div class="download-stat-label">Installer Size</div>
-          </div>
-          <div class="download-stat">
-            <div class="download-stat-value">v0.1.3</div>
-            <div class="download-stat-label">Latest Version</div>
-          </div>
-          <div class="download-stat">
-            <div class="download-stat-value">Free</div>
-            <div class="download-stat-label">No Cost</div>
-          </div>
-        </div>
-      </div>
+    <div class="cta-box">
+      <h2>Ready to Transform Your Experience?</h2>
+      <p>Join thousands of gamers and streamers who are already using MVO Hub to enhance their desktop experience.</p>
+      <a href="https://github.com/Adude4554/MVO-Hub/releases/latest/download/MVO.Beta_0.1.3_x64-setup.exe" class="btn-primary">
+        <span>Download & Install Update</span>
+      </a>
     </div>
   </section>
 
   <!-- FOOTER -->
   <footer>
-    <p>MVO Hub &copy; 2026 &bull; Built with ❤ by <a href="https://github.com/Adude4554">Adude4554</a> &bull; <a href="https://github.com/Adude4554/MVO-Hub">Source Code</a></p>
+    <p>MVO Hub &copy; 2026 • Built with ❤ by Adude4554 • <a href="https://github.com/Adude4554/MVO-Hub">Source Code</a></p>
   </footer>
 
   <script>
-    // Navbar scroll effect
-    const navbar = document.getElementById('navbar');
-    window.addEventListener('scroll', () => {
-      navbar.classList.toggle('scrolled', window.scrollY > 50);
-    });
-
-    // Scroll reveal
-    const reveals = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry, i) => {
-        if (entry.isIntersecting) {
-          setTimeout(() => entry.target.classList.add('visible'), i * 100);
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.1 });
-    reveals.forEach(el => observer.observe(el));
-
-    // Counter animation for download stats
-    function animateCounters() {
-      document.querySelectorAll('.download-stat-value').forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(10px)';
+    // Animation effects
+    document.addEventListener('DOMContentLoaded', () => {
+      // Animate dots in hero
+      const dots = document.querySelectorAll('.dot');
+      dots.forEach((dot, index) => {
         setTimeout(() => {
-          el.style.transition = 'all 0.5s ease-out';
-          el.style.opacity = '1';
-          el.style.transform = 'translateY(0)';
-        }, 300);
+          dot.style.opacity = '1';
+        }, index * 200);
       });
-    }
-
-    const ctaObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          animateCounters();
-          ctaObserver.unobserve(entry.target);
-        }
+      
+      // Animate text on scroll
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
       });
-    }, { threshold: 0.3 });
-    const ctaBox = document.querySelector('.cta-box');
-    if (ctaBox) ctaObserver.observe(ctaBox);
-  </script>
-</body>
-</html>
+      
+      document.querySelectorAll('.reveal, .hero h1, .hero p, .btn-primary').forEach(el => {
+        observer.observe(el);
+      });
+    });
