@@ -6,6 +6,7 @@ const TMDB_KEY = '7c8599abf8bf4728727be7d446c108aa';
 interface FeaturedItem {
   title: string;
   tmdbId: string;
+  imdbId?: string;
   mediaType: 'movie' | 'tv';
 }
 
@@ -63,7 +64,7 @@ export function FeaturedRow({ items, onSelect }: FeaturedProps) {
             poster={posters[item.tmdbId]}
             onClick={() => {
               const embedUrl = item.mediaType === 'movie'
-                ? `https://vidsrcme.ru/embed/movie?tmdb=${item.tmdbId}`
+                ? `https://vidsrcme.ru/embed/movie?imdb=${item.imdbId}`
                 : `https://vidsrcme.ru/embed/tv/${item.tmdbId}`;
               onSelect({ embed_url: embedUrl, title: item.title, quality: 'HD' });
             }}

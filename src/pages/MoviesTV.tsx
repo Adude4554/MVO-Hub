@@ -44,31 +44,31 @@ function tmdbPosterUrl(tmdbId: string, mediaType: 'movie' | 'tv') {
 }
 
 const FEATURED_MOVIES = [
-  { title: 'Iron Man', tmdbId: '1726', mediaType: 'movie' as const },
-  { title: 'Avengers: Endgame', tmdbId: '299536', mediaType: 'movie' as const },
-  { title: 'Spider-Man: No Way Home', tmdbId: '634649', mediaType: 'movie' as const },
-  { title: 'Doctor Strange', tmdbId: '284054', mediaType: 'movie' as const },
-  { title: 'Deadpool & Wolverine', tmdbId: '533535', mediaType: 'movie' as const },
-  { title: 'Black Panther', tmdbId: '284053', mediaType: 'movie' as const },
-  { title: 'The Dark Knight', tmdbId: '155', mediaType: 'movie' as const },
-  { title: 'The Batman', tmdbId: '414906', mediaType: 'movie' as const },
-  { title: 'Man of Steel', tmdbId: '496243', mediaType: 'movie' as const },
-  { title: 'Joker', tmdbId: '475557', mediaType: 'movie' as const },
-  { title: 'Interstellar', tmdbId: '157336', mediaType: 'movie' as const },
-  { title: 'Inception', tmdbId: '27205', mediaType: 'movie' as const },
-  { title: 'The Matrix', tmdbId: '603', mediaType: 'movie' as const },
-  { title: 'Dune', tmdbId: '438631', mediaType: 'movie' as const },
-  { title: 'Dune: Part Two', tmdbId: '693134', mediaType: 'movie' as const },
-  { title: 'Avatar', tmdbId: '19995', mediaType: 'movie' as const },
-  { title: 'Edge of Tomorrow', tmdbId: '137113', mediaType: 'movie' as const },
-  { title: 'John Wick: Chapter 4', tmdbId: '603692', mediaType: 'movie' as const },
-  { title: 'Top Gun: Maverick', tmdbId: '361743', mediaType: 'movie' as const },
-  { title: 'Mad Max: Fury Road', tmdbId: '76341', mediaType: 'movie' as const },
-  { title: 'The Lord of the Rings', tmdbId: '120', mediaType: 'movie' as const },
-  { title: 'Harry Potter', tmdbId: '671', mediaType: 'movie' as const },
-  { title: 'Back to the Future', tmdbId: '105', mediaType: 'movie' as const },
-  { title: 'Tenet', tmdbId: '577922', mediaType: 'movie' as const },
-  { title: 'Predestination', tmdbId: '244235', mediaType: 'movie' as const },
+  { title: 'Iron Man', tmdbId: '1726', imdbId: 'tt0371746', mediaType: 'movie' as const },
+  { title: 'Avengers: Endgame', tmdbId: '299536', imdbId: 'tt4154796', mediaType: 'movie' as const },
+  { title: 'Spider-Man: No Way Home', tmdbId: '634649', imdbId: 'tt10872600', mediaType: 'movie' as const },
+  { title: 'Doctor Strange', tmdbId: '284054', imdbId: 'tt1211837', mediaType: 'movie' as const },
+  { title: 'Deadpool & Wolverine', tmdbId: '533535', imdbId: 'tt6263850', mediaType: 'movie' as const },
+  { title: 'Black Panther', tmdbId: '284053', imdbId: 'tt1825683', mediaType: 'movie' as const },
+  { title: 'The Dark Knight', tmdbId: '155', imdbId: 'tt0468569', mediaType: 'movie' as const },
+  { title: 'The Batman', tmdbId: '414906', imdbId: 'tt1877830', mediaType: 'movie' as const },
+  { title: 'Man of Steel', tmdbId: '496243', imdbId: 'tt1386682', mediaType: 'movie' as const },
+  { title: 'Joker', tmdbId: '475557', imdbId: 'tt7286456', mediaType: 'movie' as const },
+  { title: 'Interstellar', tmdbId: '157336', imdbId: 'tt0816692', mediaType: 'movie' as const },
+  { title: 'Inception', tmdbId: '27205', imdbId: 'tt1375666', mediaType: 'movie' as const },
+  { title: 'The Matrix', tmdbId: '603', imdbId: 'tt0133093', mediaType: 'movie' as const },
+  { title: 'Dune', tmdbId: '438631', imdbId: 'tt1160419', mediaType: 'movie' as const },
+  { title: 'Dune: Part Two', tmdbId: '693134', imdbId: 'tt15239678', mediaType: 'movie' as const },
+  { title: 'Avatar', tmdbId: '19995', imdbId: 'tt0499549', mediaType: 'movie' as const },
+  { title: 'Edge of Tomorrow', tmdbId: '137113', imdbId: 'tt1631861', mediaType: 'movie' as const },
+  { title: 'John Wick: Chapter 4', tmdbId: '603692', imdbId: 'tt10356390', mediaType: 'movie' as const },
+  { title: 'Top Gun: Maverick', tmdbId: '361743', imdbId: 'tt1745960', mediaType: 'movie' as const },
+  { title: 'Mad Max: Fury Road', tmdbId: '76341', imdbId: 'tt1392170', mediaType: 'movie' as const },
+  { title: 'The Lord of the Rings', tmdbId: '120', imdbId: 'tt0120737', mediaType: 'movie' as const },
+  { title: 'Harry Potter', tmdbId: '671', imdbId: 'tt0241527', mediaType: 'movie' as const },
+  { title: 'Back to the Future', tmdbId: '105', imdbId: 'tt0088763', mediaType: 'movie' as const },
+  { title: 'Tenet', tmdbId: '577922', imdbId: 'tt6723592', mediaType: 'movie' as const },
+  { title: 'Predestination', tmdbId: '244235', imdbId: 'tt2397535', mediaType: 'movie' as const },
 ];
 
 const FEATURED_TV = [
@@ -269,11 +269,8 @@ export function MoviesTV() {
       <FeaturedRow
         items={tab === 'movies' ? FEATURED_MOVIES : FEATURED_TV}
         onSelect={(item) => {
-          const embedUrl = item.mediaType === 'movie'
-            ? `https://vidsrcme.ru/embed/movie?tmdb=${item.tmdbId}`
-            : `https://vidsrcme.ru/embed/tv/${item.tmdbId}`;
-          setSelectedItem({ embed_url: embedUrl, title: item.title, quality: 'HD', imdb_id: '', tmdb_id: null, embed_url_tmdb: null, time_added: '' });
-          setSelectedEmbed(embedUrl);
+          setSelectedItem({ embed_url: item.embed_url, title: item.title, quality: item.quality, imdb_id: '', tmdb_id: null, embed_url_tmdb: null, time_added: '' });
+          setSelectedEmbed(item.embed_url);
         }}
       />
 
@@ -309,11 +306,8 @@ export function MoviesTV() {
             item={item}
             poster={item.tmdb_id ? posters[item.tmdb_id] : undefined}
             onClick={() => {
-              const embedUrl = tab === 'movies'
-                ? (item.embed_url_tmdb || item.embed_url)
-                : (item.tmdb_id ? `https://vidsrcme.ru/embed/tv/${item.tmdb_id}` : item.embed_url);
               setSelectedItem(item);
-              setSelectedEmbed(embedUrl);
+              setSelectedEmbed(item.embed_url);
             }}
           />
         ))}

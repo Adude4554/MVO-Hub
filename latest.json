@@ -1,11 +1,11 @@
 {
-  "version": "0.1.2",
-  "notes": "Throttled TMDB poster loading to prevent lag. Fixed FeaturedRow to use TMDB CDN directly.",
-  "pub_date": "2026-08-06T06:57:22Z",
+  "version": "0.1.3",
+  "notes": "Fixed featured movies & TV shows not playing. Embed URLs now use correct IMDB IDs. Grid uses API-provided URLs directly.",
+  "pub_date": "2026-08-06T07:12:21Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1hnZDc1SllWMTZ6UXFGeE0xd0tNRkpZejRJVGY3RDQxY1JNZ2h1NHlqR3dwbzBQQzZ5ZGVnTUhaZW1CSUhicW1wSkdENzArbUkrZUFzckRIUEJCMWdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1OTk5NDMzCWZpbGU6TVZPIEJldGFfMC4xLjJfeDY0LXNldHVwLmV4ZQpPMXZJcGpTak43T0NuV1hSMHNlcE55eks1MmRVeXZNSzc4QmlGVTcxQWN2WVlRbTlxVGNsdTh1VGwwbE1lK3JLd29HeGZLZTlsdHkrd0psTU5lSHdDZz09Cg==",
-      "url": "https://github.com/adude4554/MVO-Hub/releases/download/v0.1.2/MVO.Beta_0.1.2_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1pkNFJQcTB4SDU0dlljVVlJaUZONVFHVklNMHVtRU11QUZwSlV3Ri9FUlB2Tjc1YkR0VTZIeVUvanBacEI4eFRwN0xTdXdTRjFzWUJJWStrakZBQ3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDAwMzMxCWZpbGU6TVZPIEJldGFfMC4xLjNfeDY0LXNldHVwLmV4ZQp0RmZtdVVxbFBLUkhiVXd4V0xsaWd3MmlYTDVZeHVBTjZTWFN0Z0ZHVlhjNzZKNndySkZoeE9XRmFxREZoRTMxeVYzZSttcTdxWUhnS1UwbXFxeW9Bdz09Cg==",
+      "url": "https://github.com/adude4554/MVO-Hub/releases/download/v0.1.3/MVO.Beta_0.1.3_x64-setup.exe"
     }
   }
 }
