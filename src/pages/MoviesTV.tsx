@@ -149,27 +149,34 @@ export function MoviesTV() {
     return () => { cancelled = true; };
   }, [tab]);
 
-  // Fetch posters via TMDB API (get poster_path, use CDN URL directly)
+  // Fetch posters via TMDB API (get poster_path, use CDN URL directly) — throttled to 2 concurrent, 500ms apart
   useEffect(() => {
     if (items.length === 0) return;
     let cancelled = false;
+    const CONCURRENT = 2;
+    const DELAY = 500;
+
+    const fetchOne = async (item: MediaItem) => {
+      if (cancelled || !item.tmdb_id || posters[item.tmdb_id]) return;
+      try {
+        const mediaType = tab === 'movies' ? 'movie' : 'tv';
+        const resp = await fetch(`https://api.themoviedb.org/3/${mediaType}/${item.tmdb_id}?api_key=${TMDB_KEY}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data.poster_path && !cancelled) {
+          setPosters(prev => ({ ...prev, [item.tmdb_id!]: `https://image.tmdb.org/t/p/w500${data.poster_path}` }));
+        }
+      } catch {}
+    };
 
     const loadPosters = async () => {
-      for (const item of items) {
-        if (cancelled || !item.tmdb_id) continue;
-        if (posters[item.tmdb_id]) continue;
-
-        try {
-          const mediaType = tab === 'movies' ? 'movie' : 'tv';
-          const resp = await fetch(`https://api.themoviedb.org/3/${mediaType}/${item.tmdb_id}?api_key=${TMDB_KEY}`);
-          if (!resp.ok) continue;
-          const data = await resp.json();
-          if (data.poster_path && !cancelled) {
-            setPosters(prev => ({ ...prev, [item.tmdb_id!]: `https://image.tmdb.org/t/p/w500${data.poster_path}` }));
-          }
-        } catch {}
-
-        await new Promise(r => setTimeout(r, 200));
+      const pending = items.filter(i => i.tmdb_id && !posters[i.tmdb_id]);
+      for (let i = 0; i < pending.length; i += CONCURRENT) {
+        if (cancelled) break;
+        await Promise.all(pending.slice(i, i + CONCURRENT).map(fetchOne));
+        if (!cancelled && i + CONCURRENT < pending.length) {
+          await new Promise(r => setTimeout(r, DELAY));
+        }
       }
     };
     loadPosters();

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Play, Loader2, ChevronRight } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { Play, Loader2 } from 'lucide-react';
+
+const TMDB_KEY = '7c8599abf8bf4728727be7d446c108aa';
 
 interface FeaturedItem {
   title: string;
@@ -14,41 +14,34 @@ interface FeaturedProps {
   onSelect: (item: { embed_url: string; title: string; quality: string }) => void;
 }
 
-function posterSrc(localPath: string) {
-  return convertFileSrc(localPath.replace(/\\/g, '/'));
-}
-
 export function FeaturedRow({ items, onSelect }: FeaturedProps) {
   const [posters, setPosters] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    const CONCURRENT = 2;
+    const DELAY = 500;
+
+    const fetchOne = async (item: FeaturedItem) => {
+      if (cancelled || posters[item.tmdbId]) return;
+      try {
+        const resp = await fetch(`https://api.themoviedb.org/3/${item.mediaType}/${item.tmdbId}?api_key=${TMDB_KEY}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data.poster_path && !cancelled) {
+          setPosters(prev => ({ ...prev, [item.tmdbId]: `https://image.tmdb.org/t/p/w500${data.poster_path}` }));
+        }
+      } catch {}
+    };
+
     const loadAll = async () => {
-      for (const item of items) {
-        if (cancelled) return;
-        if (posters[item.tmdbId]) continue;
-
-        try {
-          const cached = await invoke<string>('get_cached_poster', { tmdbId: item.tmdbId });
-          if (cached && !cancelled) {
-            setPosters(prev => ({ ...prev, [item.tmdbId]: posterSrc(cached) }));
-            continue;
-          }
-        } catch {}
-
-        try {
-          const result = await invoke<{ poster_path: string }>('fetch_tmdb_poster', {
-            tmdbId: item.tmdbId,
-            mediaType: item.mediaType,
-            apiKey: '',
-          });
-          if (result.poster_path && !cancelled) {
-            setPosters(prev => ({ ...prev, [item.tmdbId]: posterSrc(result.poster_path) }));
-          }
-        } catch {}
-
-        await new Promise(r => setTimeout(r, 150));
+      for (let i = 0; i < items.length; i += CONCURRENT) {
+        if (cancelled) break;
+        await Promise.all(items.slice(i, i + CONCURRENT).map(fetchOne));
+        if (!cancelled && i + CONCURRENT < items.length) {
+          await new Promise(r => setTimeout(r, DELAY));
+        }
       }
       if (!cancelled) setLoading(false);
     };
