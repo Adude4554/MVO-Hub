@@ -174,7 +174,7 @@ export function TopHUD({
               <WindowSnapLayout open={snapLayoutOpen} onClose={() => setSnapLayoutOpen(false)} />
             </div>
           )}
-          <button onClick={onClose} className="no-drag p-2 rounded-xl text-mvo-textDim hover:text-mvo-accentRed hover:bg-mvo-accentRed/10 transition-all duration-200" aria-label="Close">
+          <button onClick={onClose} className="no-drag p-2 rounded-xl text-mvo-textDim hover:text-mvo-accentRed hover:bg-mvo-accentRed/10 transition-all duration-200" aria-label="Close" title="Minimize to tray">
             <X className="w-5 h-5" />
           </button>
         </div>

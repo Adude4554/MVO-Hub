@@ -4475,6 +4475,72 @@ pub fn run() {
                 }
             }
 
+            // ── System Tray ──
+            {
+                use tauri::tray::{TrayIconBuilder, MouseButton, MouseButtonState};
+                use tauri::menu::{MenuBuilder, MenuItemBuilder};
+
+                let show_item = MenuItemBuilder::with_id("show", "Show MVO Hub").build(app)?;
+                let update_item = MenuItemBuilder::with_id("update", "Check for Updates").build(app)?;
+                let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+
+                let menu = MenuBuilder::new(app)
+                    .item(&show_item)
+                    .item(&update_item)
+                    .separator()
+                    .item(&quit_item)
+                    .build()?;
+
+                let _tray = TrayIconBuilder::new()
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .menu(&menu)
+                    .tooltip("MVO Hub — Running in background")
+                    .on_menu_event(move |app, event| {
+                        match event.id().as_ref() {
+                            "show" => {
+                                if let Some(window) = app.get_webview_window("main") {
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                            }
+                            "update" => {
+                                let handle = app.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    if let Ok(result) = check_for_updates().await {
+                                        let _ = handle.emit("update-check-result", result);
+                                    }
+                                });
+                            }
+                            "quit" => {
+                                app.exit(0);
+                            }
+                            _ => {}
+                        }
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let tauri::tray::TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    })
+                    .build(app)?;
+            }
+
+            // Intercept close → hide to tray
+            {
+                let window = app.get_webview_window("main").unwrap();
+                let w = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = w.hide();
+                    }
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
