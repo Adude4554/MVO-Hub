@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.1.14",
-    "notes": "Fixed updater endpoint: switched from GitHub releases CDN to raw.githubusercontent.com. Future updates will work automatically.",
-    "pub_date": "2026-08-07T03:00:00Z",
+    "version": "0.1.15",
+    "notes": "Test release to verify auto-update is working.",
+    "pub_date": "2026-08-07T04:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1dVMDFDaHhTZ2xtV0ErTktOdHM2VGVIa1k4Rm9xV1QvY3ZaY1lkZmdUd2xYUTk1MmhUWHpEdnRCeUp3TE0zZFZWa3hhUXRablNwSmR0MkpLLy9LYUFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDgzMjMxCWZpbGU6TVZPIEh1Yl8wLjEuMTRfeDY0LXNldHVwLmV4ZQpxNDVpdUV5Z3VwekJ1YkkwaE1aMXJaN1NwS2NrOGIwaFFTOEZJdm9XZlo3TkhwTk5xZm9BN252ZnFqT0EyVWJZL2FlODI1TklaRnh1bjQzc2dQSFJEZz09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.14/MVO.Hub_0.1.14_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2NnOE95aDRPUmZFc2VCWENUOUdxV2hrdy8ybEY1S1pDdE1lczBOQUpmSzVUWGN2RnJxeVhFUCtReHRCTnI0bHBXK3hYYkxCYkpRaTVaR05qa3IxOGcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDg0NDY5CWZpbGU6TVZPIEh1Yl8wLjEuMTVfeDY0LXNldHVwLmV4ZQpQM1NaaG9LWnhKbkhrQklXa05Ya2Q1RGkvaHJ6QURvREgvMGtiME90eUhDQno2VU9Fd21weGFrSjcySEFrTUtNazFYRzBXV0NWbHJpS1QzSTlsNWxCUT09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.15/MVO.Hub_0.1.15_x64-setup.exe"
         }
     }
 }
