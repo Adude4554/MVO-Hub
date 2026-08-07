@@ -6,6 +6,15 @@ use std::thread;
 /// Progress callback for scan updates
 pub type ScanProgressCallback = Arc<dyn Fn(&str) + Send + Sync>;
 
+/// Enriched game with local artwork paths
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnrichedGameResult {
+    pub game: ScannedGame,
+    pub cover_local: Option<String>,
+    pub icon_local: Option<String>,
+}
+
 /// Run all scanners and return deduplicated results
 pub fn run_full_scan(progress: Option<ScanProgressCallback>) -> Vec<ScannedGame> {
     let scanners: Vec<Box<dyn GameScanner>> = vec![
@@ -76,6 +85,27 @@ pub fn run_full_scan(progress: Option<ScanProgressCallback>) -> Vec<ScannedGame>
     }
 
     games
+}
+
+/// Run full scan with metadata enrichment (cover art, icons, sizes)
+pub fn run_full_scan_enriched(progress: Option<ScanProgressCallback>) -> Vec<EnrichedGameResult> {
+    let games = run_full_scan(progress.clone());
+
+    if let Some(ref cb) = progress {
+        cb("Downloading artwork...");
+    }
+
+    let enriched = metadata::enrich_games_parallel(&games);
+
+    if let Some(ref cb) = progress {
+        cb(&format!("Metadata enrichment complete for {} games", enriched.len()));
+    }
+
+    enriched.into_iter().map(|e| EnrichedGameResult {
+        game: e.game,
+        cover_local: e.cover_local,
+        icon_local: e.icon_local,
+    }).collect()
 }
 
 /// Deduplicate games based on install path and name similarity

@@ -20,6 +20,8 @@ interface ScannedGame {
   installSize?: number;
   scanConfidence: number;
   isInstalled: boolean;
+  coverLocal?: string;
+  iconLocal?: string;
 }
 
 interface ScanResult {
@@ -230,9 +232,9 @@ export function Scanner() {
               <GlassCard key={game.id} className="p-0 overflow-hidden">
                 {/* Cover */}
                 <div className="aspect-video bg-gradient-to-br from-mvo-panelHover to-mvo-panel relative overflow-hidden">
-                  {game.coverPath ? (
+                  {(game.coverLocal || game.coverPath) ? (
                     <img
-                      src={game.coverPath}
+                      src={game.coverLocal || game.coverPath}
                       alt={game.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -240,6 +242,13 @@ export function Scanner() {
                         const img = e.target as HTMLImageElement;
                         img.style.display = 'none';
                       }}
+                    />
+                  ) : game.iconLocal ? (
+                    <img
+                      src={game.iconLocal}
+                      alt={game.name}
+                      className="w-16 h-16 m-auto mt-8"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-4xl text-mvo-textMuted">

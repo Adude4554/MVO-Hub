@@ -1,4 +1,5 @@
 pub mod engine;
+pub mod metadata;
 pub mod steam;
 pub mod epic;
 pub mod gog;

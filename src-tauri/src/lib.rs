@@ -3039,13 +3039,24 @@ fn scan_all_platforms() -> Result<serde_json::Value, String> {
         })
     };
     
-    let result = scanner::engine::run_full_scan(Some(progress_cb));
+    let result = scanner::engine::run_full_scan_enriched(Some(progress_cb));
     
     Ok(serde_json::json!({
         "games": result,
         "total": result.len(),
         "message": format!("Found {} games", result.len()),
     }))
+}
+
+#[tauri::command]
+fn clear_artwork_cache() -> Result<String, String> {
+    scanner::metadata::clear_artwork_cache()?;
+    Ok("Artwork cache cleared".to_string())
+}
+
+#[tauri::command]
+fn get_artwork_cache_size() -> Result<u64, String> {
+    Ok(scanner::metadata::get_cache_size())
 }
 
 const GAME_EXE_BLACKLIST: &[&str] = &[
@@ -4461,6 +4472,8 @@ pub fn run() {
             scan_steam_games,
             scan_custom_games,
             scan_all_platforms,
+            clear_artwork_cache,
+            get_artwork_cache_size,
             get_performance_snapshot,
             get_hardware_history,
             get_system_info,
