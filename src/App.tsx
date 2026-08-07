@@ -93,7 +93,7 @@ function App() {
   const overlay = useOverlay();
   const streaming = useStreaming();
   const system = useSystem();
-  const { updateInfo, downloading, installUpdate, dismiss } = useUpdater();
+  const { updateInfo } = useUpdater();
 
   useEffect(() => {
     invoke('start_performance_engine').catch(console.error);
@@ -143,9 +143,9 @@ const pageMap: Record<string, React.FC<any>> = {
     return <AuthScreen onAuth={(u) => setUser(u)} />;
   }
 
-  // Update lock screen
+  // Update lock screen — locks app, auto-downloads, no dismiss
   if (updateInfo?.available) {
-    return <UpdateLockScreen version={updateInfo.version || ''} notes={updateInfo.notes || ''} onUpdateComplete={() => dismiss()} />;
+    return <UpdateLockScreen version={updateInfo.version || ''} notes={updateInfo.notes || ''} />;
   }
 
   return (

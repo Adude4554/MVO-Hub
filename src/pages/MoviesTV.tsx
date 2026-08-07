@@ -290,7 +290,7 @@ export function MoviesTV() {
 
   const filtered = items.filter(m => {
     if (!search) return true;
-    return m.title.toLowerCase().includes(search.toLowerCase());
+    return (m.title || '').toLowerCase().includes(search.toLowerCase());
   });
 
   const handleMovieSelect = (item: MediaItem) => {
@@ -574,10 +574,13 @@ export function MoviesTV() {
 }
 
 function MediaCard({ item, poster, onClick }: { item: MediaItem; poster?: string; onClick: () => void }) {
-  const year = extractYear(item.title);
-  const name = cleanTitle(item.title);
-  const [c1, c2] = getGradient(item.title);
+  const title = item.title || '';
+  const year = extractYear(title);
+  const name = cleanTitle(title);
+  const [c1, c2] = getGradient(title);
   const initial = name.charAt(0).toUpperCase();
+  const timeAdded = item.time_added ? item.time_added.split(' ')[0] : '';
+  const quality = item.quality || '';
 
   return (
     <div
@@ -600,11 +603,13 @@ function MediaCard({ item, poster, onClick }: { item: MediaItem; poster?: string
         >
           {!poster && <span className="text-5xl font-bold text-white/80">{initial}</span>}
         </div>
-        <div className="absolute top-2 right-2 z-10">
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-black/60 text-white backdrop-blur-sm">
-            {item.quality}
-          </span>
-        </div>
+        {quality && (
+          <div className="absolute top-2 right-2 z-10">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-black/60 text-white backdrop-blur-sm">
+              {quality}
+            </span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center z-10">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
             <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
@@ -615,8 +620,8 @@ function MediaCard({ item, poster, onClick }: { item: MediaItem; poster?: string
         <h3 className="font-medium text-sm text-mvo-text line-clamp-1">{name}</h3>
         <div className="flex items-center gap-2 mt-1 text-xs text-mvo-textMuted">
           {year && <span>{year}</span>}
-          <span>•</span>
-          <span>{item.time_added.split(' ')[0]}</span>
+          {year && timeAdded && <span>•</span>}
+          {timeAdded && <span>{timeAdded}</span>}
         </div>
       </div>
     </div>

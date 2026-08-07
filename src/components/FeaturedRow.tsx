@@ -21,11 +21,13 @@ export function FeaturedRow({ items, onSelect }: FeaturedProps) {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setPosters({});
     const CONCURRENT = 2;
     const DELAY = 500;
 
     const fetchOne = async (item: FeaturedItem) => {
-      if (cancelled || posters[item.tmdbId]) return;
+      if (cancelled) return;
       try {
         const resp = await fetch(`https://api.themoviedb.org/3/${item.mediaType}/${item.tmdbId}?api_key=${TMDB_KEY}`);
         if (!resp.ok) return;
@@ -48,7 +50,7 @@ export function FeaturedRow({ items, onSelect }: FeaturedProps) {
     };
     loadAll();
     return () => { cancelled = true; };
-  }, []);
+  }, [items]);
 
   return (
     <div className="space-y-3">

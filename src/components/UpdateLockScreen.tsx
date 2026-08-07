@@ -1,39 +1,58 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { DownloadIcon, Loader2, RefreshCwIcon } from 'lucide-react';
+import { DownloadIcon, Loader2, CheckCircleIcon, AlertTriangle } from 'lucide-react';
 
 interface UpdateLockScreenProps {
   version: string;
   notes: string;
-  onUpdateComplete: () => void;
 }
 
-export function UpdateLockScreen({ version, notes, onUpdateComplete }: UpdateLockScreenProps) {
-  const [downloading, setDownloading] = useState(false);
-  const [progress, setProgress] = useState('');
+export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
+  const [status, setStatus] = useState<'downloading' | 'installing' | 'done' | 'error'>('downloading');
+  const [progress, setProgress] = useState('Preparing download...');
   const [error, setError] = useState('');
+  const started = useRef(false);
 
-  const installUpdate = async () => {
-    setDownloading(true);
-    setError('');
-    setProgress('Downloading update...');
-    try {
-      await invoke('download_and_install_update');
-    } catch (e) {
-      setError(String(e));
-      setDownloading(false);
-    }
-  };
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
+    const run = async () => {
+      try {
+        setProgress('Downloading update...');
+        setStatus('downloading');
+        await invoke('download_and_install_update');
+        setStatus('done');
+        setProgress('Update installed. Restarting...');
+      } catch (e) {
+        setError(String(e));
+        setStatus('error');
+      }
+    };
+    run();
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-mvo-bg flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] bg-mvo-bg flex items-center justify-center select-none" style={{ pointerEvents: 'all' }}>
       <div className="w-full max-w-lg p-8 text-center">
         <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center mb-6">
-          <DownloadIcon className="w-10 h-10 text-white" />
+          {status === 'done' ? (
+            <CheckCircleIcon className="w-10 h-10 text-white" />
+          ) : status === 'error' ? (
+            <AlertTriangle className="w-10 h-10 text-white" />
+          ) : (
+            <DownloadIcon className="w-10 h-10 text-white" />
+          )}
         </div>
 
-        <h1 className="font-display text-2xl font-bold text-mvo-text mb-2">Update Required</h1>
-        <p className="text-mvo-textDim mb-1">A new version of MVO Hub is available</p>
+        <h1 className="font-display text-2xl font-bold text-mvo-text mb-2">
+          {status === 'error' ? 'Update Failed' : 'Update Required'}
+        </h1>
+        <p className="text-mvo-textDim mb-1">
+          {status === 'error'
+            ? 'Something went wrong during the update'
+            : 'A new version of MVO Hub is available'}
+        </p>
         <p className="text-cyan-400 font-semibold text-lg mb-4">v{version}</p>
 
         {notes && (
@@ -43,31 +62,51 @@ export function UpdateLockScreen({ version, notes, onUpdateComplete }: UpdateLoc
           </div>
         )}
 
-        {error && (
+        {status === 'error' && error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-4">
             <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
 
-        <button
-          onClick={installUpdate}
-          disabled={downloading}
-          className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-400 hover:to-blue-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {downloading ? (
+        <div className="flex items-center justify-center gap-3 py-3">
+          {status === 'downloading' || status === 'installing' ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              {progress || 'Installing...'}
+              <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+              <span className="text-mvo-text text-sm font-medium">{progress}</span>
+            </>
+          ) : status === 'done' ? (
+            <>
+              <CheckCircleIcon className="w-5 h-5 text-green-400" />
+              <span className="text-green-400 text-sm font-medium">{progress}</span>
             </>
           ) : (
-            <>
-              <DownloadIcon className="w-5 h-5" />
-              Download & Install Update
-            </>
+            <button
+              onClick={() => {
+                setError('');
+                setStatus('downloading');
+                setProgress('Retrying download...');
+                started.current = false;
+                const run = async () => {
+                  try {
+                    await invoke('download_and_install_update');
+                    setStatus('done');
+                    setProgress('Update installed. Restarting...');
+                  } catch (e) {
+                    setError(String(e));
+                    setStatus('error');
+                  }
+                };
+                run();
+              }}
+              className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-400 hover:to-blue-500 transition-all flex items-center gap-2"
+            >
+              <DownloadIcon className="w-4 h-4" />
+              Retry
+            </button>
           )}
-        </button>
+        </div>
 
-        <p className="text-xs text-mvo-textMuted mt-4">You must install this update to continue using MVO Hub</p>
+        <p className="text-xs text-mvo-textMuted mt-6">The app will restart automatically after installation</p>
       </div>
     </div>
   );

@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.1.10",
-    "notes": "update test",
-    "pub_date": "2026-08-07T00:45:00Z",
+    "version": "0.1.11",
+    "notes": "Fixed TV Shows black screen crash, added auto-download update lock, restored missing Rust commands, NVIDIA GPU data retrieval.",
+    "pub_date": "2026-08-07T01:05:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2Y5eXp3TFBBZXhhR0MzUm9UN0p5dFk5M3ZnUUg2cTdvem9kVWF5MmNNaDZUWG11RmZCLzlhcmFGdXpyY21uZUE3S2pLZUpYODBoK1A4R2w1ak9hRUF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDc3NjA4CWZpbGU6TVZPIEh1Yl8wLjEuMTBfeDY0LXNldHVwLmV4ZQpXRDFNZ2xyRml5a05VaCtVNUZhaysxNnlyN3VzaS9Bc1F5K20xMWlIS3RyUGRNUXNsaENlaFM5RUw5Ylc5YWZ4b0FSTllKOWV2dGZ1WEQrMFhpdnZDUT09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.10/MVO.Hub_0.1.10_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1ExWHZoSWNTWTJWQXlCalArK0czejJuQmJBWWhEUUFuQmMwVTY0MVV3N1A1V3haVjlIZUxLdmsyUWJEckdzR3ZFR3FNRVlER3lRMkxITC9YTEQ1NWdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDc4OTU5CWZpbGU6TVZPIEh1Yl8wLjEuMTFfeDY0LXNldHVwLmV4ZQo2STgwVUJLUWlQLzJCSXFHR0RVbHFGaVlIOHR6YmFKNUR3NGh4aU0ydmI1Y0pHMHRqb0svZTlrcmNVdERhQ25RcmFzblA4N1gvMlBuUVROb3hQQ1BDQT09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.11/MVO.Hub_0.1.11_x64-setup.exe"
         }
     }
 }
