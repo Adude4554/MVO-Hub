@@ -2241,11 +2241,15 @@ async fn download_and_install_update(app: tauri::AppHandle) -> Result<String, St
     }
     drop(file);
     let _ = app.emit("update-progress", serde_json::json!({"status": "installing", "percent": 100}));
-    std::process::Command::new(&exe_path)
+    let output = std::process::Command::new(&exe_path)
         .arg("/S")
-        .spawn()
+        .output()
         .map_err(|e| format!("Failed to start installer: {}", e))?;
-    std::thread::sleep(std::time::Duration::from_secs(2));
+    let exit_code = output.status.code().unwrap_or(-1);
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Installer failed (exit code {}): {}", exit_code, stderr));
+    }
     app.restart();
     #[allow(unreachable_code)]
     Ok("Updated".to_string())

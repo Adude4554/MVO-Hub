@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.1.17",
-    "notes": "Professional update system: Dashboard banner, modal with progress, force update support, periodic checks every 6 hours.",
-    "pub_date": "2026-08-07T06:00:00Z",
+    "version": "0.1.18",
+    "notes": "Fix: update loop — installer now waits for completion before restarting app.",
+    "pub_date": "2026-08-07T07:30:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2FsTVBGWkdvNjlsUVJ1SjBLNzl2NUx5TDZBem52RjY2eTA4QldlT2l5dFA4VHpBdENpeklkTmRKblRUaWdhbWNpbFRFTmxTajk1SEZsaERhQnU0dXdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTE3NTMyCWZpbGU6TVZPIEh1Yl8wLjEuMTdfeDY0LXNldHVwLmV4ZQpLbjBWVytCdFpXRGxBT25YMXBvRktvN21xOVl2UDczYVF1SEZTM0J0ZlNudVZxRGtIdThjS3lFZXdURWpvWFlDNnVXdXh0U0krSGxIcEM3UzdSR2VBQT09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.17/MVO.Hub_0.1.17_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1lhekxwSmZtNlZ0ZFhrUmlwTVIwQWs1NEN1U1A2b2VSRXBvM1BiOEhuQlEvTy8rLzJETTkyejBCcmJpNjMyV1ZtVGdoc0laYnQ2d3NSNlVnMnZaSndnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTI1MDY0CWZpbGU6TVZPIEh1Yl8wLjEuMThfeDY0LXNldHVwLmV4ZQpqYThmMGZjWXVBdkhhTlQrQnpKTWIwT2h3aHVhdjdxMlBwc29ZRWJ6aGlaVVNLeTg5Unc2RmZZM1lCWCtEc3ZVT0FWMjRMRFZJQlZBVXNvcDRaNDVEdz09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.18/MVO.Hub_0.1.18_x64-setup.exe"
         }
     }
 }
