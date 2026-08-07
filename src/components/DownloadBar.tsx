@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { Loader2, X, CheckCircle, AlertTriangle, ArrowDownToLine, Package, RotateCcw } from 'lucide-react';
 import { sounds } from '../hooks/useSounds';
+import { useToast } from './Toast';
 
 interface DownloadState {
   id: string;
@@ -34,6 +35,7 @@ function formatEta(seconds: number): string {
 export function DownloadBar() {
   const [downloads, setDownloads] = useState<Map<string, DownloadState>>(new Map());
   const [completed, setCompleted] = useState<{ id: string; name: string; success: boolean; message: string } | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     const unsubs: Promise<UnlistenFn>[] = [];
@@ -76,7 +78,8 @@ export function DownloadBar() {
     unsubs.push(
       listen('gv-install-complete', (event: any) => {
         const { id, success, message } = event.payload;
-        if (success) sounds.downloadComplete();
+        if (success) { sounds.downloadComplete(); toast.success('Download installed successfully!'); }
+        else { toast.error(`Install failed: ${message}`); }
         setCompleted({ id, name: '', success, message });
         setTimeout(() => {
           setDownloads(current => {

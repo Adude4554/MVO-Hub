@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { sounds } from './useSounds';
+import { useToast } from '../components/Toast';
 
 export interface StoreItem {
   id: number;
@@ -172,6 +173,7 @@ export function useGameVaultLibrary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const toast = useToast();
   const [sortBy, setSortBy] = useState<'name' | 'installed_at' | 'last_played'>('name');
 
   const loadLibrary = useCallback(async () => {
@@ -190,8 +192,10 @@ export function useGameVaultLibrary() {
     try {
       await invoke('gv_uninstall', { id });
       setLibrary(prev => prev.filter(g => g.id !== id));
+      toast.success('Game uninstalled');
     } catch (e) {
       console.error('Uninstall failed:', e);
+      toast.error(`Uninstall failed: ${e}`);
     }
   }, []);
 
@@ -199,12 +203,14 @@ export function useGameVaultLibrary() {
     try {
       await invoke('gv_launch', { id });
       sounds.gameLaunch();
+      toast.success('Game launched!');
       setLibrary(prev => prev.map(g =>
         g.id === id ? { ...g, last_played: new Date().toISOString() } : g
       ));
     } catch (e) {
       console.error('Launch failed:', e);
       sounds.error();
+      toast.error(`Failed to launch: ${e}`);
     }
   }, []);
 

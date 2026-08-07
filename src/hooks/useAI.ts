@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useToast } from '../components/Toast';
 
 export interface AiProvider {
   id: string;
@@ -33,6 +34,7 @@ export function useAI() {
   const [selectedProvider, setSelectedProvider] = useState('openai');
   const [input, setInput] = useState('');
   const [settings, setSettings] = useState({ provider: 'openai', model: 'gpt-4o-mini', url: 'https://api.openai.com/v1', apiKey: '' });
+  const toast = useToast();
 
   const loadProviders = useCallback(async () => {
     try {
@@ -92,8 +94,10 @@ export function useAI() {
         setActiveSessionId(null);
         setMessages([]);
       }
+      toast.success('Chat deleted');
     } catch (e) {
       console.error('Failed to delete session:', e);
+      toast.error('Failed to delete chat');
     }
   }, [activeSessionId]);
 

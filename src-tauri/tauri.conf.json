@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "MVO Hub",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "identifier": "com.projectmvo.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -41,7 +41,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDcxMDkyQTg0RTdFQUU2QzUKUldURjV1cm5oQ29KY1NZWHU0OGlOQWF6M1l6Mytqd1hIa1RsaDdyTHpTWnBqMUJSdEs5aWE3NTAK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQyOEYzN0Y1RkIxQTQ5OTcKUldTWFNScjc5VGVQMGxacERvQ3NoenVnaGZseTVtbE5WYjVEenpSbFUyL1p3WU8wRHJpNVZvU2cK",
       "endpoints": [
         "https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/latest.json"
       ],

@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.2.8",
-    "notes": "Quality update: bug fixes, sound effects, linting, performance improvements.",
-    "pub_date": "2026-08-07T15:00:00Z",
+    "version": "0.2.9",
+    "notes": "Toast notifications, global search (Ctrl+K), keyboard shortcuts.",
+    "pub_date": "2026-08-07T16:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2JnUEkyeXhVQSt6d2dzY2xsMUZpSDFyc3VSMEdXT011dGMrUjJ1SjJtQWRtWVo4c2liL2ZsNDlvSWhkUHE5UHhlSFZvMVRETkJjbHBkc3BPVXRtclFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTM4MzAwCWZpbGU6TVZPIEh1Yl8wLjIuOF94NjQtc2V0dXAuZXhlCjVYUEtVTVFENmdoTS9WTldOY0doQnNBS3JzQzRvaUU3ZFBBK3NsZFlCUEQ3R0tVUWlJWXJJK1RDMElGTHRHT0RSbFN4RnJnYUdHQSs5SHQwYk5xWEFRPT0K",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.8/MVO.Hub_0.2.8_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMGx6N3JsUkZHYm1oUWtTZE4rQ3c4WTNVNzF1U0VuWExLemg4Z1BhT3dRcmxiUzZRNmNQeTNHS2Z4UjFHL0NMVnhYK3JrZmxIMVdhNGVKRUh3Mm0wdUFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQwNjAxCWZpbGU6TVZPIEh1Yl8wLjIuOV94NjQtc2V0dXAuZXhlCmtFVXFTMGVmTUdONmNBVExKdlpVS2l3UmpZSFM4YklralZIUTQwWXFxY1dSNDNPQmVpS1NuTHE2SWJxaS9ZUCtJajg4TzBwc2FuazhiVGc0dzI3dkNRPT0K",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.9/MVO.Hub_0.2.9_x64-setup.exe"
         }
     }
 }

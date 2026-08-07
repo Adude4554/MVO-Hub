@@ -27,6 +27,8 @@ import { Updates } from './pages/Updates';
 import { GlobalChat } from './pages/GlobalChat';
 import { MoviesTV } from './pages/MoviesTV';
 import { WindowResizeHandles } from './components/WindowResizeHandles';
+import { ToastProvider } from './components/Toast';
+import { GlobalSearch } from './components/GlobalSearch';
 import { usePerformance } from './hooks/usePerformance';
 import { useHardware } from './hooks/useHardware';
 import { useGames } from './hooks/useGames';
@@ -37,6 +39,7 @@ import { useStreaming } from './hooks/useStreaming';
 import { useSystem } from './hooks/useSystem';
 import { useSounds } from './hooks/useSounds';
 import { useUpdater } from './hooks/useUpdater';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { initLocale } from './lib/i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { availablePages, PageId } from './config/pages';
@@ -51,6 +54,7 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [windowState, setWindowState] = useState<'normal' | 'maximized' | 'fullscreen'>('normal');
   const [settingsTab, setSettingsTab] = useState<string | undefined>(undefined);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const [user, setUser] = useState<{ id: number; username: string; email: string } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -95,6 +99,19 @@ function App() {
   const streaming = useStreaming();
   const system = useSystem();
   const { updateInfo, downloading, progress, error, showModal, checkForUpdates, installUpdate, dismiss, openModal, closeModal } = useUpdater();
+
+  const handleNewChat = useCallback(() => {
+    ai.createSession('New Chat');
+    handlePageChange('aitools');
+  }, [ai, handlePageChange]);
+
+  useKeyboardShortcuts({
+    onToggleSearch: () => setSearchOpen(s => !s),
+    onNewChat: handleNewChat,
+    onToggleSidebar: () => { play('toggle'); setSidebarCollapsed(s => !s); },
+    onToggleRightPanel: () => { play('toggle'); setRightPanelOpen(s => !s); },
+    onNavigate: handlePageChange,
+  });
 
   useEffect(() => {
     invoke('start_performance_engine').catch(console.error);
@@ -150,9 +167,17 @@ const pageMap: Record<string, React.FC<any>> = {
   }
 
   return (
+    <ToastProvider>
     <div className="mvo-app h-screen w-screen flex flex-col overflow-hidden bg-mvo-bg text-mvo-text font-sans antialiased">
       <WindowResizeHandles />
       <CustomCursor />
+      <GlobalSearch
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onNavigate={handlePageChange}
+        games={(games as any).games || []}
+        aiSessions={(ai as any).sessions || []}
+      />
 
       <TopHUD
         activePage={activePage}
@@ -229,6 +254,7 @@ const pageMap: Record<string, React.FC<any>> = {
         />
       )}
     </div>
+    </ToastProvider>
   );
 }
 
