@@ -2147,47 +2147,90 @@ fn open_print_management() -> Result<String, String> {
 // ΓöÇΓöÇ Updater ΓöÇΓöÇ
 
 #[tauri::command]
-async fn check_for_updates(app: tauri::AppHandle) -> Result<String, String> {
-    use tauri_plugin_updater::UpdaterExt;
-    let updater = match app.updater() {
-        Ok(u) => u,
-        Err(e) => return Ok(serde_json::json!({"available": false, "error": e.to_string()}).to_string()),
+async fn check_for_updates() -> Result<String, String> {
+    let url = "https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/latest.json";
+    let resp = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .user_agent(CHROME_USER_AGENT)
+        .build()
+        .map_err(|e| e.to_string())?
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to check updates: {}", e))?;
+    let text = resp.text().await.map_err(|e| format!("Failed to read update response: {}", e))?;
+    let json: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("Failed to parse update JSON: {} — body: {}", e, &text[..200.min(text.len())]))?;
+    let remote_version = json["version"].as_str().unwrap_or("0.0.0");
+    let notes = json["notes"].as_str().unwrap_or("");
+    let local_version = env!("CARGO_PKG_VERSION");
+    let available = version_is_newer(local_version, remote_version);
+    Ok(serde_json::json!({
+        "available": available,
+        "version": remote_version,
+        "notes": notes,
+        "local": local_version,
+    }).to_string())
+}
+
+fn version_is_newer(local: &str, remote: &str) -> bool {
+    let parse = |v: &str| -> Vec<u32> {
+        v.split('.').filter_map(|s| s.parse().ok()).collect()
     };
-    match updater.check().await {
-        Ok(Some(update)) => {
-            let version = update.version.clone();
-            let notes = update.body.clone().unwrap_or_default();
-            Ok(serde_json::json!({
-                "available": true,
-                "version": version,
-                "notes": notes,
-            }).to_string())
-        }
-        Ok(None) => Ok(serde_json::json!({"available": false}).to_string()),
-        Err(e) => {
-            eprintln!("Update check error (non-fatal): {}", e);
-            Ok(serde_json::json!({"available": false, "error": e.to_string()}).to_string())
-        }
+    let l = parse(local);
+    let r = parse(remote);
+    for i in 0..l.len().max(r.len()) {
+        let lv = l.get(i).copied().unwrap_or(0);
+        let rv = r.get(i).copied().unwrap_or(0);
+        if rv > lv { return true; }
+        if rv < lv { return false; }
     }
+    false
 }
 
 #[tauri::command]
 async fn download_and_install_update(app: tauri::AppHandle) -> Result<String, String> {
-    use tauri_plugin_updater::UpdaterExt;
-    let updater = app.updater().map_err(|e| e.to_string())?;
-    match updater.check().await {
-        Ok(Some(update)) => {
-            update
-                .download_and_install(|_, _| {}, || {})
-                .await
-                .map_err(|e| format!("Download/install failed: {}", e))?;
-            app.restart();
-            #[allow(unreachable_code)]
-            Ok("Updated".to_string())
-        }
-        Ok(None) => Ok("Already up to date".to_string()),
-        Err(e) => Err(format!("Update check failed: {}", e)),
+    let url = "https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/latest.json";
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .user_agent(CHROME_USER_AGENT)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client.get(url).send().await.map_err(|e| format!("Failed to check updates: {}", e))?;
+    let text = resp.text().await.map_err(|e| e.to_string())?;
+    let json: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let remote_version = json["version"].as_str().unwrap_or("0.0.0");
+    let local_version = env!("CARGO_PKG_VERSION");
+    if !version_is_newer(local_version, remote_version) {
+        return Ok("Already up to date".to_string());
     }
+    let download_url = json["platforms"]["windows-x86_64"]["url"].as_str()
+        .ok_or("No download URL found for windows-x86_64")?;
+    let install_dir = dirs::download_dir().unwrap_or_else(|| std::path::PathBuf::from(".")).join("MVO_Hub_Update");
+    std::fs::create_dir_all(&install_dir).map_err(|e| e.to_string())?;
+    let exe_path = install_dir.join(format!("MVO_Hub_{}_setup.exe", remote_version));
+    let resp = client.get(download_url).send().await.map_err(|e| format!("Download failed: {}", e))?;
+    let total = resp.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+    let mut stream = resp.bytes_stream();
+    use futures_util::StreamExt;
+    let mut file = std::fs::File::create(&exe_path).map_err(|e| e.to_string())?;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("Download stream error: {}", e))?;
+        std::io::Write::write_all(&mut file, &chunk).map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+        let pct = if total > 0 { (downloaded as f64 / total as f64 * 100.0) as u32 } else { 0 };
+        let _ = app.emit("update-download-progress", serde_json::json!({"downloaded": downloaded, "total": total, "percent": pct}));
+    }
+    drop(file);
+    let _ = app.emit("update-download-progress", serde_json::json!({"status": "installing"}));
+    std::process::Command::new(&exe_path)
+        .arg("/S")
+        .spawn()
+        .map_err(|e| format!("Failed to start installer: {}", e))?;
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    app.restart();
+    #[allow(unreachable_code)]
+    Ok("Updated".to_string())
 }
 
 // ΓöÇΓöÇ User Accounts ΓöÇΓöÇ

@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.1.15",
-    "notes": "Test release to verify auto-update is working.",
-    "pub_date": "2026-08-07T04:00:00Z",
+    "version": "0.1.16",
+    "notes": "Replaced Tauri updater plugin with custom updater using reqwest. Should now work reliably.",
+    "pub_date": "2026-08-07T05:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2NnOE95aDRPUmZFc2VCWENUOUdxV2hrdy8ybEY1S1pDdE1lczBOQUpmSzVUWGN2RnJxeVhFUCtReHRCTnI0bHBXK3hYYkxCYkpRaTVaR05qa3IxOGcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDg0NDY5CWZpbGU6TVZPIEh1Yl8wLjEuMTVfeDY0LXNldHVwLmV4ZQpQM1NaaG9LWnhKbkhrQklXa05Ya2Q1RGkvaHJ6QURvREgvMGtiME90eUhDQno2VU9Fd21weGFrSjcySEFrTUtNazFYRzBXV0NWbHJpS1QzSTlsNWxCUT09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.15/MVO.Hub_0.1.15_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1gxWVpxY2JwU0FSY3FJMEtkZEZjMjUzLzVzTkdxcUs2dFhZcCtqYUtYblFJK0FrMU12ZW9ueFdVVnhKRisybnlRNHZpN2dnUzd5dmlDM3lRNFVBQXcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDg0ODcyCWZpbGU6TVZPIEh1Yl8wLjEuMTZfeDY0LXNldHVwLmV4ZQpvSXJIV2NuSHlEOUo4YlBpWklwcERKTEJtYXc5VHJQWVh1djMydTdORnM1T2g3aEtzZitXcURNdEVwWit0a1lPNjh5RTVjS3ZPeTA0MVZvWU5aZ0NEUT09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.16/MVO.Hub_0.1.16_x64-setup.exe"
         }
     }
 }
