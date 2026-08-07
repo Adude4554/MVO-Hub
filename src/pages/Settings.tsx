@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GlassCard } from '../components/ui';
-import { RotateCcwIcon, DownloadIcon, UploadIcon, FolderOpenIcon, ShieldIcon, BrainIcon, LayoutDashboardIcon, Loader2, Trash2Icon, SettingsIcon, WrenchIcon, GaugeIcon, PowerIcon, MonitorIcon, HardDriveIcon, NetworkIcon, PuzzleIcon, ChevronDownIcon, ChevronRightIcon, RefreshCwIcon, UserIcon, LogOutIcon } from 'lucide-react';
+import { RotateCcwIcon, DownloadIcon, UploadIcon, FolderOpenIcon, ShieldIcon, BrainIcon, LayoutDashboardIcon, Loader2, Trash2Icon, SettingsIcon, WrenchIcon, GaugeIcon, PowerIcon, MonitorIcon, HardDriveIcon, NetworkIcon, PuzzleIcon, ChevronDownIcon, ChevronRightIcon, RefreshCwIcon, UserIcon, LogOutIcon, CheckCircleIcon, AlertTriangle } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { setLocale, type Locale } from '../lib/i18n';
@@ -97,10 +97,9 @@ function PowerPlanSelector() {
 }
 
 function UpdatesTab() {
-  const { updateInfo, downloading: updateDownloading, error: updateError, installUpdate, checkForUpdates } = useUpdater();
+  const { updateInfo, downloading: updateDownloading, progress, error: updateError, lastChecked, installUpdate, checkForUpdates } = useUpdater();
   const [currentVersion, setCurrentVersion] = useState('');
   const [checking, setChecking] = useState(false);
-  const [status, setStatus] = useState('');
 
   useEffect(() => {
     const loadVersion = async () => {
@@ -117,11 +116,9 @@ function UpdatesTab() {
 
   const handleCheckForUpdates = async () => {
     setChecking(true);
-    setStatus('');
     try {
       await checkForUpdates();
     } catch (e) {
-      setStatus('Failed to check for updates');
     } finally {
       setChecking(false);
     }
@@ -129,38 +126,91 @@ function UpdatesTab() {
 
   return (
     <div className="space-y-4">
+      {/* Current version & check */}
       <GlassCard className="p-5">
-        <h3 className="font-semibold mb-3 flex items-center gap-2"><RefreshCwIcon className="w-5 h-5 text-cyan-400" /> App Updates</h3>
+        <h3 className="font-semibold mb-4 flex items-center gap-2"><RefreshCwIcon className="w-5 h-5 text-cyan-400" /> App Updates</h3>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="p-3 rounded-xl bg-mvo-bg/50 border border-mvo-border/30">
+            <p className="text-[10px] text-mvo-textMuted uppercase tracking-wider mb-1">Current Version</p>
+            <p className="font-mono text-sm text-cyan-400">v{currentVersion}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-mvo-bg/50 border border-mvo-border/30">
+            <p className="text-[10px] text-mvo-textMuted uppercase tracking-wider mb-1">Latest Version</p>
+            <p className="font-mono text-sm text-mvo-text">
+              {updateInfo?.available ? <span className="text-green-400">v{updateInfo.version}</span> : <span className="text-mvo-textMuted">—</span>}
+            </p>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-sm text-mvo-text">Current version: <span className="text-cyan-400 font-mono">v{currentVersion}-beta</span></p>
-            {status && <p className="text-xs text-mvo-textDim mt-1">{status}</p>}
+          <div className="text-xs text-mvo-textMuted">
+            {lastChecked ? <>Last checked: {lastChecked}</> : 'Not checked yet'}
           </div>
           <button onClick={handleCheckForUpdates} disabled={checking} className="btn-secondary text-sm flex items-center gap-2">
             {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCwIcon className="w-4 h-4" />}
             {checking ? 'Checking...' : 'Check Now'}
           </button>
         </div>
-        {updateInfo?.available && (
-          <div className="bg-cyan-400/5 border border-cyan-400/20 rounded-xl p-4">
-            <p className="text-cyan-400 font-medium mb-1">Update v{updateInfo.version} available</p>
-            {updateInfo.notes && <p className="text-xs text-mvo-textDim mb-3 whitespace-pre-line">{updateInfo.notes}</p>}
-            <button onClick={installUpdate} disabled={updateDownloading} className="btn-primary text-sm flex items-center gap-2">
-              {updateDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
-              {updateDownloading ? 'Installing...' : 'Download & Install'}
-            </button>
+
+        {/* Status */}
+        {!updateInfo?.available && !checking && !updateError && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-green-400/5 border border-green-400/20">
+            <CheckCircleIcon className="w-4 h-4 text-green-400" />
+            <p className="text-xs text-green-400">App is up to date</p>
           </div>
         )}
-        {!updateInfo?.available && !checking && !updateError && (
-          <p className="text-xs text-green-400 mt-2">App is up to date</p>
-        )}
         {updateError && !checking && (
-          <div className="bg-red-400/5 border border-red-400/20 rounded-xl p-3 mt-2">
-            <p className="text-red-400 text-xs font-medium mb-1">Update check error</p>
-            <p className="text-red-300/70 text-xs break-all">{updateError}</p>
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-red-400/5 border border-red-400/20">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <p className="text-xs text-red-400 break-all">{updateError}</p>
           </div>
         )}
       </GlassCard>
+
+      {/* Update available */}
+      {updateInfo?.available && (
+        <GlassCard className="p-5 border-cyan-400/30">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-cyan-400/20 flex items-center justify-center">
+              <DownloadIcon className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div>
+              <p className="font-medium text-cyan-400">Update v{updateInfo.version} available</p>
+              {updateInfo.pub_date && <p className="text-[10px] text-mvo-textMuted">Released: {updateInfo.pub_date}</p>}
+              {updateInfo.file_size && updateInfo.file_size > 0 && (
+                <p className="text-[10px] text-mvo-textMuted">Size: {(updateInfo.file_size / 1024 / 1024).toFixed(1)} MB</p>
+              )}
+            </div>
+          </div>
+          {updateInfo.notes && (
+            <div className="p-3 rounded-xl bg-mvo-bg/50 border border-mvo-border/30 mb-3">
+              <p className="text-[10px] text-mvo-textMuted uppercase tracking-wider mb-1">Release Notes</p>
+              <p className="text-xs text-mvo-textDim whitespace-pre-line">{updateInfo.notes}</p>
+            </div>
+          )}
+
+          {/* Download progress */}
+          {updateDownloading && progress && (
+            <div className="mb-3 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-mvo-textDim">{progress.status === 'downloading' ? 'Downloading...' : 'Installing...'}</span>
+                <span className="text-cyan-400 font-mono">{progress.percent || 0}%</span>
+              </div>
+              <div className="h-1.5 bg-mvo-bg/50 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all" style={{ width: `${progress.percent || 0}%` }} />
+              </div>
+            </div>
+          )}
+
+          <button onClick={installUpdate} disabled={updateDownloading} className="btn-primary text-sm flex items-center gap-2 w-full justify-center">
+            {updateDownloading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> {progress?.status === 'installing' ? 'Installing...' : 'Downloading...'}</>
+            ) : (
+              <><DownloadIcon className="w-4 h-4" /> Download & Install</>
+            )}
+          </button>
+        </GlassCard>
+      )}
     </div>
   );
 }

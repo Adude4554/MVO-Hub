@@ -8,6 +8,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { CustomCursor } from './components/CustomCursor';
 import { AuthScreen } from './components/AuthScreen';
 import { UpdateLockScreen } from './components/UpdateLockScreen';
+import { UpdateModal } from './components/UpdateModal';
 import { Dashboard } from './pages/Dashboard';
 import { GameLibrary } from './pages/GameLibrary';
 import { GameVault } from './pages/GameVault';
@@ -93,11 +94,11 @@ function App() {
   const overlay = useOverlay();
   const streaming = useStreaming();
   const system = useSystem();
-  const { updateInfo } = useUpdater();
+  const { updateInfo, downloading, progress, error, showModal, checkForUpdates, installUpdate, dismiss, openModal, closeModal } = useUpdater();
 
   useEffect(() => {
     invoke('start_performance_engine').catch(console.error);
-  });
+  }, []);
 
   const handlePageChange = useCallback((page: PageId) => {
     play('pageSwitch');
@@ -143,8 +144,8 @@ const pageMap: Record<string, React.FC<any>> = {
     return <AuthScreen onAuth={(u) => setUser(u)} />;
   }
 
-  // Update lock screen — locks app, auto-downloads, no dismiss
-  if (updateInfo?.available) {
+  // Force update lock screen — blocks everything, no dismiss
+  if (updateInfo?.available && updateInfo?.force) {
     return <UpdateLockScreen version={updateInfo.version || ''} notes={updateInfo.notes || ''} />;
   }
 
@@ -190,6 +191,10 @@ const pageMap: Record<string, React.FC<any>> = {
               onSettingsChange={settings.save}
               user={user}
               defaultTab={settingsTab}
+              updateInfo={updateInfo}
+              onUpdateCheck={checkForUpdates}
+              onUpdateDismiss={dismiss}
+              onUpdateNow={openModal}
             />
           </div>
         </main>
@@ -211,6 +216,18 @@ const pageMap: Record<string, React.FC<any>> = {
         windowState={windowState}
       />
       <DownloadBar />
+
+      {/* Update modal for non-force updates */}
+      {showModal && updateInfo?.available && !updateInfo?.force && (
+        <UpdateModal
+          update={updateInfo}
+          progress={progress}
+          downloading={downloading}
+          error={error}
+          onUpdate={installUpdate}
+          onClose={closeModal}
+        />
+      )}
     </div>
   );
 }

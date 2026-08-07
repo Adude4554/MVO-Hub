@@ -2162,12 +2162,20 @@ async fn check_for_updates() -> Result<String, String> {
     let json: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("Failed to parse update JSON: {} — body: {}", e, &text[..200.min(text.len())]))?;
     let remote_version = json["version"].as_str().unwrap_or("0.0.0");
     let notes = json["notes"].as_str().unwrap_or("");
+    let pub_date = json["pub_date"].as_str().unwrap_or("");
+    let force = json["force"].as_bool().unwrap_or(false);
+    let download_url = json["platforms"]["windows-x86_64"]["url"].as_str().unwrap_or("");
+    let file_size = json["platforms"]["windows-x86_64"]["file_size"].as_u64().unwrap_or(0);
     let local_version = env!("CARGO_PKG_VERSION");
     let available = version_is_newer(local_version, remote_version);
     Ok(serde_json::json!({
         "available": available,
         "version": remote_version,
         "notes": notes,
+        "pub_date": pub_date,
+        "force": force,
+        "download_url": download_url,
+        "file_size": file_size,
         "local": local_version,
     }).to_string())
 }
@@ -2208,21 +2216,31 @@ async fn download_and_install_update(app: tauri::AppHandle) -> Result<String, St
     let install_dir = dirs::download_dir().unwrap_or_else(|| std::path::PathBuf::from(".")).join("MVO_Hub_Update");
     std::fs::create_dir_all(&install_dir).map_err(|e| e.to_string())?;
     let exe_path = install_dir.join(format!("MVO_Hub_{}_setup.exe", remote_version));
+    let _ = app.emit("update-progress", serde_json::json!({"status": "downloading", "percent": 0}));
     let resp = client.get(download_url).send().await.map_err(|e| format!("Download failed: {}", e))?;
     let total = resp.content_length().unwrap_or(0);
     let mut downloaded: u64 = 0;
     let mut stream = resp.bytes_stream();
     use futures_util::StreamExt;
     let mut file = std::fs::File::create(&exe_path).map_err(|e| e.to_string())?;
+    let mut last_emit = std::time::Instant::now();
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| format!("Download stream error: {}", e))?;
         std::io::Write::write_all(&mut file, &chunk).map_err(|e| e.to_string())?;
         downloaded += chunk.len() as u64;
-        let pct = if total > 0 { (downloaded as f64 / total as f64 * 100.0) as u32 } else { 0 };
-        let _ = app.emit("update-download-progress", serde_json::json!({"downloaded": downloaded, "total": total, "percent": pct}));
+        if last_emit.elapsed() >= std::time::Duration::from_millis(500) || downloaded == total {
+            let pct = if total > 0 { (downloaded as f64 / total as f64 * 100.0) as u32 } else { 0 };
+            let _ = app.emit("update-progress", serde_json::json!({
+                "status": "downloading",
+                "downloaded": downloaded,
+                "total": total,
+                "percent": pct,
+            }));
+            last_emit = std::time::Instant::now();
+        }
     }
     drop(file);
-    let _ = app.emit("update-download-progress", serde_json::json!({"status": "installing"}));
+    let _ = app.emit("update-progress", serde_json::json!({"status": "installing", "percent": 100}));
     std::process::Command::new(&exe_path)
         .arg("/S")
         .spawn()
@@ -4252,6 +4270,22 @@ pub fn run() {
         .setup(|app| {
             use tauri::Manager;
             let _ = start_performance_engine();
+
+            // Auto-check for updates every 6 hours
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    loop {
+                        std::thread::sleep(std::time::Duration::from_secs(6 * 60 * 60));
+                        let h = handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Ok(result) = check_for_updates().await {
+                                let _ = h.emit("update-check-result", result);
+                            }
+                        });
+                    }
+                });
+            }
 
             let app_data = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
             match gamevault::db::GameVaultDb::new(&app_data) {

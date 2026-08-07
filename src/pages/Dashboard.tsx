@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { GlassCard } from '../components/ui';
+import { UpdateBanner } from '../components/UpdateBanner';
 import { Cpu, MemoryStick, HardDrive, Monitor, Thermometer, Server, Gamepad2, ArrowRight, Activity, Zap, Trash2, RefreshCw, Download, FolderOpen, Terminal, Settings, Shield, CheckCircle, ExternalLink } from 'lucide-react';
 import { PageId } from '../config/pages';
 import { useLocale } from '../hooks/useLocale';
@@ -13,7 +14,7 @@ interface NewsItem {
   icon?: string;
 }
 
-export function Dashboard({ performance, hardware, games, onNavigate, settings, onSettingsChange }: any) {
+export function Dashboard({ performance, hardware, games, onNavigate, settings, onSettingsChange, updateInfo, onUpdateCheck, onUpdateDismiss, onUpdateNow }: any) {
   useLocale();
   const snap = performance?.snapshot;
   const hw = hardware?.snapshot;
@@ -196,6 +197,16 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
           <p className="text-mvo-textDim text-sm mt-0.5">{t('dashboard.overview')}</p>
         </div>
       </div>
+
+      {/* Update banner */}
+      {updateInfo?.available && !updateInfo?.force && (
+        <UpdateBanner
+          update={updateInfo}
+          onUpdate={onUpdateNow}
+          onDismiss={onUpdateDismiss}
+          onViewChanges={() => onNavigate && onNavigate('settings')}
+        />
+      )}
 
       {actionToast && (
         <div className={`flex items-center gap-2 p-3 rounded-xl text-sm ${actionToast.ok ? 'bg-green-400/10 text-green-400 border border-green-400/30' : 'bg-red-400/10 text-red-400 border border-red-400/30'}`}>

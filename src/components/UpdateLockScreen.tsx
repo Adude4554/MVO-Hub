@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { DownloadIcon, Loader2, CheckCircleIcon, AlertTriangle } from 'lucide-react';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { DownloadIcon, Loader2, CheckCircleIcon, AlertTriangle, X } from 'lucide-react';
 
 interface UpdateLockScreenProps {
   version: string;
@@ -9,9 +10,30 @@ interface UpdateLockScreenProps {
 
 export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
   const [status, setStatus] = useState<'downloading' | 'installing' | 'done' | 'error'>('downloading');
-  const [progress, setProgress] = useState('Preparing download...');
+  const [progress, setProgress] = useState(0);
+  const [progressText, setProgressText] = useState('Preparing download...');
   const [error, setError] = useState('');
+  const [downloaded, setDownloaded] = useState(0);
+  const [total, setTotal] = useState(0);
   const started = useRef(false);
+
+  useEffect(() => {
+    const unlisten = listen<any>('update-progress', (event) => {
+      const p = event.payload;
+      if (p.status === 'downloading') {
+        setStatus('downloading');
+        setProgress(p.percent || 0);
+        setDownloaded(p.downloaded || 0);
+        setTotal(p.total || 0);
+        setProgressText('Downloading update...');
+      } else if (p.status === 'installing') {
+        setStatus('installing');
+        setProgress(100);
+        setProgressText('Installing update...');
+      }
+    });
+    return () => { unlisten.then((fn: UnlistenFn) => fn()); };
+  }, []);
 
   useEffect(() => {
     if (started.current) return;
@@ -19,11 +41,11 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
 
     const run = async () => {
       try {
-        setProgress('Downloading update...');
+        setProgressText('Downloading update...');
         setStatus('downloading');
         await invoke('download_and_install_update');
         setStatus('done');
-        setProgress('Update installed. Restarting...');
+        setProgressText('Update installed. Restarting...');
       } catch (e) {
         setError(String(e));
         setStatus('error');
@@ -31,6 +53,28 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
     };
     run();
   }, []);
+
+  const retry = () => {
+    setError('');
+    setStatus('downloading');
+    setProgressText('Retrying download...');
+    started.current = false;
+    const run = async () => {
+      try {
+        await invoke('download_and_install_update');
+        setStatus('done');
+        setProgressText('Update installed. Restarting...');
+      } catch (e) {
+        setError(String(e));
+        setStatus('error');
+      }
+    };
+    run();
+  };
+
+  const exitApp = async () => {
+    try { await invoke('window_close'); } catch { window.close(); }
+  };
 
   return (
     <div className="fixed inset-0 z-[100] bg-mvo-bg flex items-center justify-center select-none" style={{ pointerEvents: 'all' }}>
@@ -62,6 +106,27 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
           </div>
         )}
 
+        {/* Progress bar */}
+        {(status === 'downloading' || status === 'installing') && (
+          <div className="mb-6 space-y-2">
+            <div className="h-2 bg-mvo-panel/50 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-mvo-textMuted">
+              <span>{progressText}</span>
+              <span className="text-cyan-400 font-mono">{progress}%</span>
+            </div>
+            {total > 0 && (
+              <div className="text-[10px] text-mvo-textMuted">
+                {(downloaded / 1024 / 1024).toFixed(1)} MB / {(total / 1024 / 1024).toFixed(1)} MB
+              </div>
+            )}
+          </div>
+        )}
+
         {status === 'error' && error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-4">
             <p className="text-red-400 text-sm">{error}</p>
@@ -70,39 +135,32 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
 
         <div className="flex items-center justify-center gap-3 py-3">
           {status === 'downloading' || status === 'installing' ? (
-            <>
+            <div className="flex items-center gap-2 text-mvo-text">
               <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
-              <span className="text-mvo-text text-sm font-medium">{progress}</span>
-            </>
+              <span className="text-sm font-medium">{progressText}</span>
+            </div>
           ) : status === 'done' ? (
-            <>
-              <CheckCircleIcon className="w-5 h-5 text-green-400" />
-              <span className="text-green-400 text-sm font-medium">{progress}</span>
-            </>
+            <div className="flex items-center gap-2 text-green-400">
+              <CheckCircleIcon className="w-5 h-5" />
+              <span className="text-sm font-medium">{progressText}</span>
+            </div>
           ) : (
-            <button
-              onClick={() => {
-                setError('');
-                setStatus('downloading');
-                setProgress('Retrying download...');
-                started.current = false;
-                const run = async () => {
-                  try {
-                    await invoke('download_and_install_update');
-                    setStatus('done');
-                    setProgress('Update installed. Restarting...');
-                  } catch (e) {
-                    setError(String(e));
-                    setStatus('error');
-                  }
-                };
-                run();
-              }}
-              className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-400 hover:to-blue-500 transition-all flex items-center gap-2"
-            >
-              <DownloadIcon className="w-4 h-4" />
-              Retry
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={retry}
+                className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-400 hover:to-blue-500 transition-all flex items-center gap-2"
+              >
+                <DownloadIcon className="w-4 h-4" />
+                Retry
+              </button>
+              <button
+                onClick={exitApp}
+                className="px-4 py-2 border border-mvo-border/50 text-mvo-textDim hover:text-white rounded-xl transition-colors flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Exit
+              </button>
+            </div>
           )}
         </div>
 
