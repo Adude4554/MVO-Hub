@@ -20,8 +20,8 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
   const hw = hardware?.snapshot;
 
   const cpuPercent = snap?.cpu_usage?.toFixed(1) || '0';
-  const memPercent = snap ? ((snap.used_memory / snap.total_memory) * 100).toFixed(1) : '0';
-  const diskPercent = snap ? ((snap.used_storage / snap.total_storage) * 100).toFixed(1) : '0';
+  const memPercent = snap && snap.total_memory > 0 ? ((snap.used_memory / snap.total_memory) * 100).toFixed(1) : '0';
+  const diskPercent = snap && snap.total_storage > 0 ? ((snap.used_storage / snap.total_storage) * 100).toFixed(1) : '0';
   const gpuPercent = hw?.gpu?.usage || 0;
 
   const recentGames = (games?.allGames || []).slice(0, 6);

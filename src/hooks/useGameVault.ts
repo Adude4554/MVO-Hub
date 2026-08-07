@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { sounds } from './useSounds';
 
 export interface StoreItem {
   id: number;
@@ -197,11 +198,13 @@ export function useGameVaultLibrary() {
   const launch = useCallback(async (id: string) => {
     try {
       await invoke('gv_launch', { id });
+      sounds.gameLaunch();
       setLibrary(prev => prev.map(g =>
         g.id === id ? { ...g, last_played: new Date().toISOString() } : g
       ));
     } catch (e) {
       console.error('Launch failed:', e);
+      sounds.error();
     }
   }, []);
 

@@ -8,9 +8,9 @@ export function Performance({ performance, hardware }: any) {
   const snap = performance?.snapshot;
   const hw = hardware?.snapshot;
 
-  const memPercent = snap ? ((snap.used_memory / snap.total_memory) * 100).toFixed(1) : '0';
+  const memPercent = snap && snap.total_memory > 0 ? ((snap.used_memory / snap.total_memory) * 100).toFixed(1) : '0';
   const cpuPercent = snap?.cpu_usage?.toFixed(1) || '0';
-  const diskPercent = snap ? ((snap.used_storage / snap.total_storage) * 100).toFixed(1) : '0';
+  const diskPercent = snap && snap.total_storage > 0 ? ((snap.used_storage / snap.total_storage) * 100).toFixed(1) : '0';
 
   return (
     <div className="space-y-6 animate-in">
@@ -23,7 +23,7 @@ export function Performance({ performance, hardware }: any) {
         <MetricCard label={t('dashboard.cpuUsage')} value={`${cpuPercent}%`} icon={<CpuIcon className="w-6 h-6" />} color="cyan" progress={parseFloat(cpuPercent) / 100} subtitle={`${hw?.cpu_cores || '?'} cores • ${hw?.cpu_name || 'Unknown'}`} />
         <MetricCard label={t('dashboard.memory')} value={`${memPercent}%`} icon={<MemoryStick className="w-6 h-6" />} color="purple" progress={parseFloat(memPercent) / 100} subtitle={`${(snap?.used_memory || 0) / 1e9} / ${(snap?.total_memory || 0) / 1e9} GB`} />
         <MetricCard label={t('dashboard.storage')} value={`${diskPercent}%`} icon={<HardDrive className="w-6 h-6" />} color="amber" progress={parseFloat(diskPercent) / 100} subtitle={`${formatBytes(snap?.used_storage || 0)} / ${formatBytes(snap?.total_storage || 0)}`} />
-        <MetricCard label={t('perf.uptime')} value={`${Math.floor((snap?.uptime || 0) / 3600)}h ${Math.floor(((snap?.uptime || 0) % 3600) / 60)}m`} icon={<Activity className="w-6 h-6" />} color="green" progress={0} subtitle={t('perf.systemUptime')} />
+        <MetricCard label={t('perf.uptime')} value={`${Math.floor((snap?.uptime_seconds || 0) / 3600)}h ${Math.floor(((snap?.uptime_seconds || 0) % 3600) / 60)}m`} icon={<Activity className="w-6 h-6" />} color="green" progress={0} subtitle={t('perf.systemUptime')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -31,7 +31,7 @@ export function Performance({ performance, hardware }: any) {
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Gauge className="w-5 h-5 text-cyan-400" /> {t('dashboard.cpuHistory')}</h3>
           <div className="h-48 flex items-end gap-1">
             {performance?.history?.slice(-60).map((h: any, i: number) => (
-              <div key={i} className="flex-1 bg-cyan-400/20 rounded-t transition-all duration-200 hover:bg-cyan-400" style={{ height: `${Math.max(h.cpu_usage, 1)}%` }} title={`${h.cpu_usage.toFixed(1)}%`} />
+              <div key={i} className="flex-1 bg-cyan-400/20 rounded-t transition-all duration-200 hover:bg-cyan-400" style={{ height: `${Math.max(h.cpu_usage || 0, 1)}%` }} title={`${(h.cpu_usage || 0).toFixed(1)}%`} />
             ))}
           </div>
         </GlassCard>
@@ -40,7 +40,7 @@ export function Performance({ performance, hardware }: any) {
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Database className="w-5 h-5 text-purple-400" /> {t('dashboard.memoryHistory')}</h3>
           <div className="h-48 flex items-end gap-1">
             {performance?.history?.slice(-60).map((h: any, i: number) => (
-              <div key={i} className="flex-1 bg-purple-400/20 rounded-t transition-all duration-200 hover:bg-purple-400" style={{ height: `${Math.max(((h.used_memory / h.total_memory) * 100), 1)}%` }} title={`${((h.used_memory / h.total_memory) * 100).toFixed(1)}%`} />
+              <div key={i} className="flex-1 bg-purple-400/20 rounded-t transition-all duration-200 hover:bg-purple-400" style={{ height: `${Math.max((h.total_memory > 0 ? (h.used_memory / h.total_memory) * 100 : 0), 1)}%` }} title={`${(h.total_memory > 0 ? (h.used_memory / h.total_memory) * 100 : 0).toFixed(1)}%`} />
             ))}
           </div>
         </GlassCard>

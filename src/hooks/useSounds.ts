@@ -83,6 +83,24 @@ export const sounds = {
     setTimeout(() => playTone(660, 0.3, 'sine', 0.05), 200);
     setTimeout(() => playTone(880, 0.3, 'sine', 0.04), 400);
   },
+  downloadComplete: () => {
+    playTone(523, 0.1, 'sine', 0.12);
+    setTimeout(() => playTone(784, 0.1, 'sine', 0.12), 80);
+    setTimeout(() => playTone(1047, 0.15, 'sine', 0.1), 160);
+  },
+  gameLaunch: () => {
+    playTone(330, 0.15, 'triangle', 0.1);
+    setTimeout(() => playTone(440, 0.12, 'triangle', 0.1), 100);
+    setTimeout(() => playTone(660, 0.12, 'triangle', 0.1), 200);
+    setTimeout(() => playTone(880, 0.2, 'sine', 0.08), 300);
+  },
+  delete: () => {
+    playTone(400, 0.15, 'sawtooth', 0.06);
+    setTimeout(() => playTone(250, 0.2, 'sawtooth', 0.05), 100);
+  },
+  typing: () => {
+    playTone(1200 + Math.random() * 400, 0.03, 'sine', 0.03);
+  },
 };
 
 export function useSounds() {

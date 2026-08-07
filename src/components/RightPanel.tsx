@@ -12,8 +12,8 @@ interface RightPanelProps {
 
 const metricCards = [
   { label: 'CPU Usage', icon: Cpu, color: 'text-cyan-400', getValue: (p: any) => p?.snapshot?.cpu_usage?.toFixed(1) + '%' || '--' },
-  { label: 'Memory', icon: MemoryStick, color: 'text-purple-400', getValue: (p: any) => p?.snapshot ? ((p.snapshot.used_memory / p.snapshot.total_memory) * 100).toFixed(1) + '%' : '--' },
-  { label: 'Storage', icon: HardDrive, color: 'text-amber-400', getValue: (p: any) => p?.snapshot ? ((p.snapshot.used_storage / p.snapshot.total_storage) * 100).toFixed(1) + '%' : '--' },
+  { label: 'Memory', icon: MemoryStick, color: 'text-purple-400', getValue: (p: any) => p?.snapshot && p.snapshot.total_memory > 0 ? ((p.snapshot.used_memory / p.snapshot.total_memory) * 100).toFixed(1) + '%' : '--' },
+  { label: 'Storage', icon: HardDrive, color: 'text-amber-400', getValue: (p: any) => p?.snapshot && p.snapshot.total_storage > 0 ? ((p.snapshot.used_storage / p.snapshot.total_storage) * 100).toFixed(1) + '%' : '--' },
   { label: 'Network', icon: Wifi, color: 'text-green-400', getValue: () => 'Online' },
 ];
 

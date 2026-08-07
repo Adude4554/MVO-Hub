@@ -36,11 +36,12 @@ export function usePerformance() {
   }, []);
 
   useEffect(() => {
-    refresh();
-    loadHistory();
-    setLoading(false);
+    let active = true;
+    Promise.all([refresh(), loadHistory()]).then(() => {
+      if (active) setLoading(false);
+    });
     const interval = setInterval(refresh, 1000);
-    return () => clearInterval(interval);
+    return () => { active = false; clearInterval(interval); };
   }, [refresh, loadHistory]);
 
   return { snapshot, history, loading, refresh, loadHistory };

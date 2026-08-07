@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { Loader2, X, CheckCircle, AlertTriangle, ArrowDownToLine, Package, RotateCcw } from 'lucide-react';
+import { sounds } from '../hooks/useSounds';
 
 interface DownloadState {
   id: string;
@@ -75,6 +76,7 @@ export function DownloadBar() {
     unsubs.push(
       listen('gv-install-complete', (event: any) => {
         const { id, success, message } = event.payload;
+        if (success) sounds.downloadComplete();
         setCompleted({ id, name: '', success, message });
         setTimeout(() => {
           setDownloads(current => {

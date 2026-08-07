@@ -62,7 +62,7 @@ function App() {
   useEffect(() => {
     invoke<string>('get_current_user').then(data => {
       if (data && data !== 'null') {
-        setUser(JSON.parse(data));
+        try { setUser(JSON.parse(data)); } catch { /* ignore bad data */ }
       }
       setAuthChecked(true);
     }).catch(() => setAuthChecked(true));

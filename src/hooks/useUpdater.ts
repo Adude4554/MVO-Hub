@@ -36,7 +36,8 @@ export function useUpdater() {
     setError(null);
     try {
       const result = await invoke<string>('check_for_updates');
-      const info = JSON.parse(result) as UpdateInfo;
+      let info: UpdateInfo;
+      try { info = JSON.parse(result) as UpdateInfo; } catch { info = { available: false }; }
       setLastChecked(new Date().toLocaleString());
       if (info.available) {
         setUpdateInfo(info);

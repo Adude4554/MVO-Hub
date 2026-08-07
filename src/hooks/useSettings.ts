@@ -73,14 +73,12 @@ export function useSettings() {
   }, []);
 
   const save = useCallback(async (newSettings: Partial<AppSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    try {
-      await invoke('save_settings', { settings: updated });
-    } catch (e) {
-      console.error('Settings save failed:', e);
-    }
-  }, [settings]);
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      invoke('save_settings', { settings: updated }).catch(e => console.error('Settings save failed:', e));
+      return updated;
+    });
+  }, []);
 
   const reset = useCallback(async () => {
     try {

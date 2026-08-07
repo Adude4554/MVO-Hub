@@ -65,8 +65,8 @@ export function FunctionTest() {
             <option value="fail">Failed</option>
           </select>
           <button onClick={runTests} disabled={running} className="btn-primary">
-            <span className="w-4 h-4 mr-2 animate-spin">⟳</span>
-            {false ? 'Running...' : 'Run All Tests'}
+            {running ? <span className="w-4 h-4 mr-2 animate-spin">⟳</span> : null}
+            {running ? 'Running...' : 'Run All Tests'}
           </button>
         </div>
       </div>

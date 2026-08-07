@@ -11,9 +11,9 @@ interface BottomBarProps {
 export function BottomBar({ performance, hardware, windowState }: BottomBarProps) {
   const [version, setVersion] = useState('...');
   useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
-  const memPercent = performance?.snapshot ? ((performance.snapshot.used_memory / performance.snapshot.total_memory) * 100).toFixed(1) : '0';
+  const memPercent = performance?.snapshot && performance.snapshot.total_memory > 0 ? ((performance.snapshot.used_memory / performance.snapshot.total_memory) * 100).toFixed(1) : '0';
   const cpuPercent = performance?.snapshot?.cpu_usage?.toFixed(1) || '0';
-  const diskPercent = performance?.snapshot ? ((performance.snapshot.used_storage / performance.snapshot.total_storage) * 100).toFixed(1) : '0';
+  const diskPercent = performance?.snapshot && performance.snapshot.total_storage > 0 ? ((performance.snapshot.used_storage / performance.snapshot.total_storage) * 100).toFixed(1) : '0';
 
   const statusItems = [
     { label: 'CPU', value: `${cpuPercent}%`, icon: <Cpu className="w-4 h-4" />, color: 'text-cyan-400' },

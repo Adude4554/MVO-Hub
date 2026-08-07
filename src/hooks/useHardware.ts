@@ -63,10 +63,12 @@ export function useHardware() {
   }, []);
 
   useEffect(() => {
-    fetchSnapshot();
-    setLoading(false);
+    let active = true;
+    fetchSnapshot().then(() => {
+      if (active) setLoading(false);
+    });
     const interval = setInterval(fetchSnapshot, 5000);
-    return () => clearInterval(interval);
+    return () => { active = false; clearInterval(interval); };
   }, [fetchSnapshot]);
 
   return { snapshot, loading, refresh: fetchSnapshot };
