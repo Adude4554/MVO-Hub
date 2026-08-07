@@ -20,10 +20,21 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | null>(null);
 
+const noop = () => {};
+const noopId = '';
+
+const defaultCtx: ToastContextType = {
+  toast: () => noopId,
+  success: noop,
+  error: noop,
+  info: noop,
+  loading: () => noopId,
+  dismiss: noop,
+};
+
 export function useToast() {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within ToastProvider');
-  return ctx;
+  return ctx || defaultCtx;
 }
 
 let toastCounter = 0;

@@ -1,10 +1,10 @@
 ﻿{
     "version": "0.2.9",
-    "notes": "Toast notifications, global search (Ctrl+K), keyboard shortcuts.",
-    "pub_date": "2026-08-07T16:00:00Z",
+    "notes": "Toast notifications, global search (Ctrl+K), keyboard shortcuts. Fixed black screen crash.",
+    "pub_date": "2026-08-07T16:20:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMGx6N3JsUkZHYm1oUWtTZE4rQ3c4WTNVNzF1U0VuWExLemg4Z1BhT3dRcmxiUzZRNmNQeTNHS2Z4UjFHL0NMVnhYK3JrZmxIMVdhNGVKRUh3Mm0wdUFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQwNjAxCWZpbGU6TVZPIEh1Yl8wLjIuOV94NjQtc2V0dXAuZXhlCmtFVXFTMGVmTUdONmNBVExKdlpVS2l3UmpZSFM4YklralZIUTQwWXFxY1dSNDNPQmVpS1NuTHE2SWJxaS9ZUCtJajg4TzBwc2FuazhiVGc0dzI3dkNRPT0K",
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMG5wa3lBc3VObEZ0azdmS2J5bVhVZCttUHpaZXFqWFgzU0pYbDhLQnhJOUVLOGs1a01oUW9xU3JoUDlQTlR4THh0ZUo0aW40OElrWGd0OXlLcHAycHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQwOTY2CWZpbGU6TVZPIEh1Yl8wLjIuOV94NjQtc2V0dXAuZXhlCjNEMC90VDZIcFdCUk1NaW1MVTFYOFlKQ0VTSS92UXZ1aVdpVWZMckdKcnNVeW5SQUFjUHp6TzJKUk9MRWlkVGtsbkdLL1lseHp1eWVkTVhVVlFkMEJnPT0K",
             "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.9/MVO.Hub_0.2.9_x64-setup.exe"
         }
     }

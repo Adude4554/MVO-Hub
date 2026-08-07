@@ -27,7 +27,6 @@ import { Updates } from './pages/Updates';
 import { GlobalChat } from './pages/GlobalChat';
 import { MoviesTV } from './pages/MoviesTV';
 import { WindowResizeHandles } from './components/WindowResizeHandles';
-import { ToastProvider } from './components/Toast';
 import { GlobalSearch } from './components/GlobalSearch';
 import { usePerformance } from './hooks/usePerformance';
 import { useHardware } from './hooks/useHardware';
@@ -167,7 +166,6 @@ const pageMap: Record<string, React.FC<any>> = {
   }
 
   return (
-    <ToastProvider>
     <div className="mvo-app h-screen w-screen flex flex-col overflow-hidden bg-mvo-bg text-mvo-text font-sans antialiased">
       <WindowResizeHandles />
       <CustomCursor />
@@ -254,7 +252,6 @@ const pageMap: Record<string, React.FC<any>> = {
         />
       )}
     </div>
-    </ToastProvider>
   );
 }
 
