@@ -3364,7 +3364,7 @@ fn get_ai_providers() -> Result<serde_json::Value, String> {
     ]))
 }
 
-const GAMEVAULT_URL: &str = "https://adude4554.github.io/GameVault/js/games.js";
+const GAMEVAULT_URL: &str = "https://raw.githubusercontent.com/Adude4554/GameVault/main/js/games.js";
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct GameVaultGame {
@@ -3661,7 +3661,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
     let parsed_id: u32 = item_id.parse().map_err(|_| format!("Invalid item ID: {}", item_id))?;
 
     let store_items = {
-        let url = "https://adude4554.github.io/GameVault/js/games.js";
+    let url = "https://raw.githubusercontent.com/Adude4554/GameVault/main/js/games.js";
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(15))
             .user_agent(CHROME_USER_AGENT)
