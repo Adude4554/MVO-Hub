@@ -27,6 +27,8 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
   const recentGames = (games?.allGames || []).slice(0, 6);
   const [recentlyLaunched, setRecentlyLaunched] = useState<any[]>([]);
   const [nvidiaGpu, setNvidiaGpu] = useState<any>(null);
+  const [scannedGameCount, setScannedGameCount] = useState(0);
+  const [scannedPlatforms, setScannedPlatforms] = useState<Record<string, number>>({});
 
   const [gamingMode, setGamingMode] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -50,6 +52,13 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
     }).catch(() => {});
     invoke<string>('get_gpu_info_nvidia').then(data => {
       setNvidiaGpu(JSON.parse(data));
+    }).catch(() => {});
+    // Load scanned games count and platform breakdown
+    invoke<any[]>('load_scanned_games_from_db').then(dbGames => {
+      setScannedGameCount(dbGames.length);
+      const platforms: Record<string, number> = {};
+      dbGames.forEach(g => { platforms[g.platform] = (platforms[g.platform] || 0) + 1; });
+      setScannedPlatforms(platforms);
     }).catch(() => {});
   }, []);
 
@@ -241,17 +250,31 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
       <div className="grid grid-cols-4 gap-4">
         <GlassCard className="p-4">
           <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <Thermometer className="w-4 h-4 text-green-400" /> GPU Details{nvidiaGpu ? ' (NVIDIA)' : ''}
+            <Monitor className="w-4 h-4 text-green-400" /> GPU Usage{nvidiaGpu ? ' (NVIDIA)' : ''}
           </h3>
-          <div className="space-y-0">
-            <DetailRow label="Model" value={nvidiaGpu?.name || hw?.gpu?.name || 'Not detected'} />
-            <DetailRow label="VRAM" value={nvidiaGpu?.memory_total ? `${nvidiaGpu.memory_total} MB` : hw?.gpu?.memory_total ? `${(hw.gpu.memory_total / 1e9).toFixed(1)} GB` : 'N/A'} />
-            <DetailRow label="VRAM Used" value={nvidiaGpu?.memory_used ? `${nvidiaGpu.memory_used} MB` : 'N/A'} />
-            <DetailRow label="VRAM Free" value={nvidiaGpu?.memory_free ? `${nvidiaGpu.memory_free} MB` : 'N/A'} />
-            <DetailRow label="Driver" value={nvidiaGpu?.driver_version || hw?.gpu?.driver_version || 'N/A'} />
-            <DetailRow label="Temperature" value={nvidiaGpu?.temperature ? `${nvidiaGpu.temperature}°C` : hw?.gpu?.temperature ? `${hw.gpu.temperature}°C` : 'N/A'} color={nvidiaGpu?.temperature > 80 || hw?.gpu?.temperature > 80 ? 'text-red-400' : 'text-green-400'} />
-            <DetailRow label="Utilization" value={nvidiaGpu?.utilization ? `${nvidiaGpu.utilization}%` : 'N/A'} />
-            <DetailRow label="Power" value={nvidiaGpu?.power_draw ? `${nvidiaGpu.power_draw} W` : 'N/A'} />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-mvo-textDim truncate">{nvidiaGpu?.name || hw?.gpu?.name || 'Not detected'}</span>
+              <span className="text-lg font-bold text-green-400">{gpuPercent}%</span>
+            </div>
+            <div className="h-3 bg-mvo-bg rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-500" style={{ width: `${gpuPercent}%` }} />
+            </div>
+            <div className="text-xs text-mvo-textDim">GPU Usage (Last 60 Seconds)</div>
+            <div className="h-16 flex items-end gap-px">
+              {(performance?.history || []).slice(-60).map((h: any, i: number) => {
+                const gpuHist = h.gpu_usage || 0;
+                return (
+                  <div key={i} className="flex-1 bg-green-400/60 rounded-t transition-all duration-300" style={{ height: `${Math.max(gpuHist * 0.6, 2)}%` }} />
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between"><span className="text-mvo-textDim">VRAM</span><span className="text-mvo-text">{nvidiaGpu?.memory_total ? `${nvidiaGpu.memory_total} MB` : hw?.gpu?.memory_total ? `${(hw.gpu.memory_total / 1e9).toFixed(1)} GB` : 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-mvo-textDim">Temp</span><span className={`${(nvidiaGpu?.temperature > 80 || hw?.gpu?.temperature > 80) ? 'text-red-400' : 'text-green-400'}`}>{nvidiaGpu?.temperature ? `${nvidiaGpu.temperature}°C` : hw?.gpu?.temperature ? `${hw.gpu.temperature}°C` : 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-mvo-textDim">Driver</span><span className="text-mvo-text">{nvidiaGpu?.driver_version || hw?.gpu?.driver_version || 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-mvo-textDim">Power</span><span className="text-mvo-text">{nvidiaGpu?.power_draw ? `${nvidiaGpu.power_draw}W` : 'N/A'}</span></div>
+            </div>
           </div>
         </GlassCard>
 
@@ -305,22 +328,33 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
 
         <GlassCard className="p-4">
           <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <Server className="w-4 h-4 text-cyan-400" /> CPU Details
+            <Cpu className="w-4 h-4 text-cyan-400" /> CPU Usage
           </h3>
-          <div className="space-y-0">
-            <DetailRow label="" value={hw?.cpu_name || 'Unknown CPU'} color="text-cyan-400 text-xs" />
-            <DetailRow label="Cores / Threads" value={`${hw?.cpu_cores || '?'} / ${hw?.cpu_threads || '?'}`} />
-            <DetailRow label="Base Clock" value="2.50 GHz" />
-            <DetailRow label="Max Turbo" value="4.70 GHz" />
-            <DetailRow label="Temperature" value={snap?.cpu_usage ? `${Math.round(35 + snap.cpu_usage * 0.5)}°C` : 'N/A'} />
-            <DetailRow label="Current Usage" value={`${cpuPercent}%`} />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-mvo-textDim">{hw?.cpu_name || 'Unknown CPU'}</span>
+              <span className="text-lg font-bold text-cyan-400">{cpuPercent}%</span>
+            </div>
+            <div className="h-3 bg-mvo-bg rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full transition-all duration-500" style={{ width: `${cpuPercent}%` }} />
+            </div>
+            <div className="text-xs text-mvo-textDim">CPU Usage (Last 60 Seconds)</div>
+            <div className="h-16 flex items-end gap-px">
+              {(performance?.history || []).slice(-60).map((h: any, i: number) => (
+                <div key={i} className="flex-1 bg-cyan-400/60 rounded-t transition-all duration-300" style={{ height: `${Math.max(h.cpu_usage * 0.6, 2)}%` }} />
+              ))}
+            </div>
+            <div className="flex items-center justify-between text-xs text-mvo-textDim">
+              <span>{hw?.cpu_cores || '?'} cores / {hw?.cpu_threads || '?'} threads</span>
+              <span>{snap?.cpu_usage ? `${Math.round(35 + snap.cpu_usage * 0.5)}°C` : 'N/A'}</span>
+            </div>
           </div>
         </GlassCard>
       </div>
 
       {/* Row 3: Quick Actions | Your Games | System Shortcuts + News */}
       <div className="grid grid-cols-4 gap-4">
-        {/* Quick Actions - left column */}
+        {/* Quick Actions + Game Stats - left column */}
         <GlassCard className="p-4 row-span-2">
           <div className="flex items-center gap-2 mb-4">
             <Zap className="w-5 h-5 text-cyan-400" />
@@ -369,6 +403,30 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
               Check Updates
             </button>
           </div>
+
+          {/* Game Library Stats */}
+          {scannedGameCount > 0 && (
+            <div className="mt-4 pt-4 border-t border-mvo-border/30">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-sm text-mvo-text">Game Library</h3>
+                <button onClick={() => onNavigate?.('scanner')} className="text-xs text-cyan-400 hover:text-cyan-300">
+                  Scanner <ArrowRight className="w-3 h-3 inline" />
+                </button>
+              </div>
+              <div className="text-2xl font-bold text-cyan-400 mb-2">{scannedGameCount} games</div>
+              <div className="space-y-1.5">
+                {Object.entries(scannedPlatforms)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 5)
+                  .map(([platform, count]) => (
+                    <div key={platform} className="flex items-center justify-between text-xs">
+                      <span className="text-mvo-textDim">{platform}</span>
+                      <span className="text-mvo-text font-medium">{count}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </GlassCard>
 
         {/* Recently Launched - spans 2 columns */}

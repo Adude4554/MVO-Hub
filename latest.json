@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.2.2",
-    "notes": "Database persistence: scan results saved to SQLite. Load instantly on next open. Favorite/hidden toggles. Cached vs live indicator.",
-    "pub_date": "2026-08-07T09:30:00Z",
+    "version": "0.2.3",
+    "notes": "Better Dashboard: live CPU/GPU history graphs, game library stats with platform breakdown.",
+    "pub_date": "2026-08-07T10:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2JCd0Y5YllPSTIyWHRIalNKYlFIWWI1VzBGSXJPend4MGVBMlJwOU5ZTFM1d1o1TFg2ZE9ZOXdwaVBScUpqR0YxYnU0TzRRWWphUXVjdkxhSTB5N3d3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTMwODkxCWZpbGU6TVZPIEh1Yl8wLjIuMl94NjQtc2V0dXAuZXhlCjRXL1d2bjR0MSt0RDFLKzhDcE5oSmQ1VDl5QXNtb1Zwb1hndEIzbkdydDdGV1h1V3hka0czNGxNTjdTUDhMZ2RjcDRtZXFQb0d5QmN6eER4RUhtYUFnPT0K",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.2/MVO.Hub_0.2.2_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1JNQkZ5aFdQRUI0RHlWU3NsUjNERUpaamd5M2MyLzEyenN6czJxTGVRcWR3dDcrald0bnZYYjdVcmE0Z0tQSEFQai9lQnREbmlFNC81ZXFYdm9BU1FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTMyNjcxCWZpbGU6TVZPIEh1Yl8wLjIuM194NjQtc2V0dXAuZXhlCkNIK3JNODRKbmxLdkdhakZ2ejJNd3p6NmM0RWVjRThheUJPbVU3QUlLdC9wQ1g4ejAzbVlwc0hwVXlhLzEvd3g3MUtrUTdOMy8xWGZ2QkRkeFZ5QUF3PT0K",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.3/MVO.Hub_0.2.3_x64-setup.exe"
         }
     }
 }
