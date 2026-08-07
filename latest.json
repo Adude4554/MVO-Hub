@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.1.18",
-    "notes": "Fix: update loop — installer now waits for completion before restarting app.",
-    "pub_date": "2026-08-07T07:30:00Z",
+    "version": "0.2.0",
+    "notes": "Universal Game Discovery Engine - 14 platform scanners, parallel execution, smart deduplication, Scanner UI page.",
+    "pub_date": "2026-08-07T08:30:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1lhekxwSmZtNlZ0ZFhrUmlwTVIwQWs1NEN1U1A2b2VSRXBvM1BiOEhuQlEvTy8rLzJETTkyejBCcmJpNjMyV1ZtVGdoc0laYnQ2d3NSNlVnMnZaSndnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTI1MDY0CWZpbGU6TVZPIEh1Yl8wLjEuMThfeDY0LXNldHVwLmV4ZQpqYThmMGZjWXVBdkhhTlQrQnpKTWIwT2h3aHVhdjdxMlBwc29ZRWJ6aGlaVVNLeTg5Unc2RmZZM1lCWCtEc3ZVT0FWMjRMRFZJQlZBVXNvcDRaNDVEdz09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.18/MVO.Hub_0.1.18_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2YrUkk3NjRNak51RUw3UXRVOFljZEFpMUFwemxlRWk2S2xOSjNWK2pRbjlBUC9MRzI5c1prYzFUZ1hTRmkzOWZEVzVwV0o4OG5PbmhLYkpMSXFUQ2c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTI5NTYzCWZpbGU6TVZPIEh1Yl8wLjIuMF94NjQtc2V0dXAuZXhlCkRidmhsQTRlUERYTThmZWNJVEk0TXlTeWhRRWwvZXlyTUhMTTBUWWR5T09kR0VGNEhCWlpFRkM2YWFDZEY3a3NGcnpuYjZabDN4dG9LZllraTVmMEJnPT0K",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.0/MVO.Hub_0.2.0_x64-setup.exe"
         }
     }
 }

@@ -16,6 +16,7 @@ import { Files } from "../pages/Files";
 import { Web } from "../pages/Web";
 import { Tools } from "../pages/Tools";
 import { Settings } from "../pages/Settings";
+import { Scanner } from "../pages/Scanner";
 
 export function Layout() {
   useLocale();
@@ -23,6 +24,7 @@ export function Layout() {
   const paths = [
     { path: "/", label: t("nav.dashboard"), icon: "⌬", profile: "vortex" },
     { path: "/library", label: t("nav.library"), icon: "▣", profile: "vortex" },
+    { path: "/scanner", label: t("nav.scanner") || "Scanner", icon: "⊕", profile: "vortex" },
     { path: "/game-mode", label: t("nav.gameMode"), icon: "⚡", profile: "vortex" },
     { path: "/optimizer", label: t("nav.optimizer"), icon: "◈", profile: "vortex" },
     { path: "/performance", label: t("nav.performance"), icon: "◌", profile: "nova" },
@@ -88,6 +90,7 @@ export function Layout() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/library" element={<GameLibrary />} />
+                <Route path="/scanner" element={<Scanner />} />
                 <Route path="/game-mode" element={<GameMode />} />
                 <Route path="/optimizer" element={<Optimizer />} />
                 <Route path="/performance" element={<Performance />} />

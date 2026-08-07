@@ -10,6 +10,7 @@ use std::time::Duration;
 use futures_util::StreamExt;
 
 mod gamevault;
+mod scanner;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -3025,6 +3026,28 @@ fn scan_steam_games() -> Result<serde_json::Value, String> {
     }))
 }
 
+#[tauri::command]
+fn scan_all_platforms() -> Result<serde_json::Value, String> {
+    use std::sync::Arc;
+    
+    let progress_messages = Arc::new(Mutex::new(Vec::<String>::new()));
+    
+    let progress_cb = {
+        let progress_messages = Arc::clone(&progress_messages);
+        Arc::new(move |msg: &str| {
+            progress_messages.lock().unwrap().push(msg.to_string());
+        })
+    };
+    
+    let result = scanner::engine::run_full_scan(Some(progress_cb));
+    
+    Ok(serde_json::json!({
+        "games": result,
+        "total": result.len(),
+        "message": format!("Found {} games", result.len()),
+    }))
+}
+
 const GAME_EXE_BLACKLIST: &[&str] = &[
     // Uninstallers / installers
     "uninstall", "unins", "setup", "install", "update", "patch",
@@ -4437,6 +4460,7 @@ pub fn run() {
             complete_first_run,
             scan_steam_games,
             scan_custom_games,
+            scan_all_platforms,
             get_performance_snapshot,
             get_hardware_history,
             get_system_info,
