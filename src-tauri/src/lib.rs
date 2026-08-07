@@ -2728,6 +2728,199 @@ fn ask_ai(
     }
 }
 
+// ── Cloud Sync Commands ──
+
+#[tauri::command]
+fn sync_export_to_gist(github_token: String) -> Result<String, String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    // Gather all user data
+    let settings = {
+        let app_data = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+        let settings_path = app_data.join("project-mvo-app").join("mvo-settings.json");
+        if settings_path.exists() {
+            fs::read_to_string(&settings_path).unwrap_or_else(|_| "{}".to_string())
+        } else {
+            "{}".to_string()
+        }
+    };
+
+    let chat_data = {
+        let db = gv_db()?;
+        let db = db.lock().map_err(|e| e.to_string())?;
+        let sessions = db.get_chat_sessions().map_err(|e| e.to_string())?;
+        let mut all_messages = Vec::new();
+        for (id, title, model, created_at, updated_at) in &sessions {
+            let msgs = db.get_chat_messages(id).map_err(|e| e.to_string())?;
+            all_messages.push(serde_json::json!({
+                "session": { "id": id, "title": title, "model": model, "createdAt": created_at, "updatedAt": updated_at },
+                "messages": msgs.into_iter().map(|(_, role, content, created_at)| {
+                    serde_json::json!({ "role": role, "content": content, "createdAt": created_at })
+                }).collect::<Vec<_>>()
+            }));
+        }
+        serde_json::to_string(&all_messages).unwrap_or_else(|_| "[]".to_string())
+    };
+
+    let sync_data = serde_json::json!({
+        "version": "1.0",
+        "exported_at": chrono_now(),
+        "settings": serde_json::from_str::<serde_json::Value>(&settings).unwrap_or(serde_json::json!({})),
+        "chat_data": serde_json::from_str::<serde_json::Value>(&chat_data).unwrap_or(serde_json::json!([])),
+    });
+
+    let body = serde_json::json!({
+        "description": "MVO Hub sync data",
+        "public": false,
+        "files": {
+            "mvo-sync-data.json": {
+                "content": serde_json::to_string_pretty(&sync_data).unwrap_or_default()
+            }
+        }
+    });
+
+    // Check for existing gist
+    let gists_resp = client.get("https://api.github.com/gists")
+        .header("Authorization", format!("token {}", github_token))
+        .header("User-Agent", "MVO-Hub")
+        .send()
+        .map_err(|e| format!("Failed to list gists: {}", e))?;
+
+    let gists: Vec<serde_json::Value> = gists_resp.json().map_err(|e| format!("Failed to parse gists: {}", e))?;
+
+    let existing_gist = gists.iter().find(|g| {
+        g.get("description").and_then(|d| d.as_str()).map(|d| d.contains("MVO Hub sync")).unwrap_or(false)
+    });
+
+    if let Some(gist) = existing_gist {
+        let gist_id = gist["id"].as_str().ok_or("Invalid gist ID")?;
+        let resp = client.patch(format!("https://api.github.com/gists/{}", gist_id))
+            .header("Authorization", format!("token {}", github_token))
+            .header("User-Agent", "MVO-Hub")
+            .json(&body)
+            .send()
+            .map_err(|e| format!("Failed to update gist: {}", e))?;
+
+        if resp.status().is_success() {
+            Ok(format!("Synced to existing gist: {}", gist_id))
+        } else {
+            Err(format!("Failed to update gist: HTTP {}", resp.status()))
+        }
+    } else {
+        let resp = client.post("https://api.github.com/gists")
+            .header("Authorization", format!("token {}", github_token))
+            .header("User-Agent", "MVO-Hub")
+            .json(&body)
+            .send()
+            .map_err(|e| format!("Failed to create gist: {}", e))?;
+
+        if resp.status().is_success() {
+            let gist: serde_json::Value = resp.json().map_err(|e| e.to_string())?;
+            let gist_id = gist["id"].as_str().ok_or("Invalid gist ID")?;
+            Ok(format!("Created sync gist: {}", gist_id))
+        } else {
+            Err(format!("Failed to create gist: HTTP {}", resp.status()))
+        }
+    }
+}
+
+#[tauri::command]
+fn sync_import_from_gist(github_token: String) -> Result<String, String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let gists_resp = client.get("https://api.github.com/gists")
+        .header("Authorization", format!("token {}", github_token))
+        .header("User-Agent", "MVO-Hub")
+        .send()
+        .map_err(|e| format!("Failed to list gists: {}", e))?;
+
+    let gists: Vec<serde_json::Value> = gists_resp.json().map_err(|e| format!("Failed to parse gists: {}", e))?;
+
+    let existing_gist = gists.iter().find(|g| {
+        g.get("description").and_then(|d| d.as_str()).map(|d| d.contains("MVO Hub sync")).unwrap_or(false)
+    });
+
+    let gist_id = existing_gist
+        .and_then(|g| g["id"].as_str())
+        .ok_or("No MVO Hub sync gist found. Export first.")?;
+
+    let gist_resp = client.get(format!("https://api.github.com/gists/{}", gist_id))
+        .header("Authorization", format!("token {}", github_token))
+        .header("User-Agent", "MVO-Hub")
+        .send()
+        .map_err(|e| format!("Failed to fetch gist: {}", e))?;
+
+    let gist: serde_json::Value = gist_resp.json().map_err(|e| e.to_string())?;
+
+    let file_content = gist["files"]["mvo-sync-data.json"]["content"]
+        .as_str()
+        .ok_or("Sync data file not found in gist")?;
+
+    let sync_data: serde_json::Value = serde_json::from_str(file_content)
+        .map_err(|e| format!("Failed to parse sync data: {}", e))?;
+
+    // Restore settings
+    if let Some(settings) = sync_data.get("settings") {
+        let app_data = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+        let settings_path = app_data.join("project-mvo-app").join("mvo-settings.json");
+        let settings_json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+        fs::write(&settings_path, &settings_json).map_err(|e| e.to_string())?;
+    }
+
+    // Restore chat data
+    if let Some(chat_data) = sync_data.get("chat_data") {
+        if let Some(sessions) = chat_data.as_array() {
+            let db = gv_db()?;
+            let db = db.lock().map_err(|e| e.to_string())?;
+            for session in sessions {
+                if let Some(s) = session.get("session") {
+                    let id = s["id"].as_str().unwrap_or("");
+                    let title = s["title"].as_str().unwrap_or("Chat");
+                    let model = s["model"].as_str().unwrap_or("gpt-4o-mini");
+                    let _ = db.create_chat_session(id, title, model);
+                    if let Some(msgs) = session.get("messages").and_then(|m| m.as_array()) {
+                        for msg in msgs {
+                            let role = msg["role"].as_str().unwrap_or("user");
+                            let content = msg["content"].as_str().unwrap_or("");
+                            let _ = db.add_chat_message(id, role, content);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok("Data imported from cloud sync".to_string())
+}
+
+#[tauri::command]
+fn sync_get_gist_id(github_token: String) -> Result<Option<String>, String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let gists_resp = client.get("https://api.github.com/gists")
+        .header("Authorization", format!("token {}", github_token))
+        .header("User-Agent", "MVO-Hub")
+        .send()
+        .map_err(|e| format!("Failed to list gists: {}", e))?;
+
+    let gists: Vec<serde_json::Value> = gists_resp.json().map_err(|e| e.to_string())?;
+
+    let existing_gist = gists.iter().find(|g| {
+        g.get("description").and_then(|d| d.as_str()).map(|d| d.contains("MVO Hub sync")).unwrap_or(false)
+    });
+
+    Ok(existing_gist.and_then(|g| g["id"].as_str().map(|s| s.to_string())))
+}
+
 #[tauri::command]
 fn pick_exe_file() -> Result<String, String> {
     let script = r#"
@@ -4627,6 +4820,9 @@ pub fn run() {
             chat_delete_session,
             chat_add_message,
             chat_get_messages,
+            sync_export_to_gist,
+            sync_import_from_gist,
+            sync_get_gist_id,
             load_mvo_settings,
             save_mvo_settings,
             reset_mvo_settings,

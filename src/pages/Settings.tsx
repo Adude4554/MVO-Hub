@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GlassCard } from '../components/ui';
-import { RotateCcwIcon, DownloadIcon, UploadIcon, FolderOpenIcon, ShieldIcon, BrainIcon, LayoutDashboardIcon, Loader2, Trash2Icon, SettingsIcon, WrenchIcon, GaugeIcon, PowerIcon, MonitorIcon, HardDriveIcon, NetworkIcon, PuzzleIcon, ChevronDownIcon, ChevronRightIcon, RefreshCwIcon, UserIcon, LogOutIcon, CheckCircleIcon, AlertTriangle } from 'lucide-react';
+import { RotateCcwIcon, DownloadIcon, UploadIcon, FolderOpenIcon, ShieldIcon, BrainIcon, LayoutDashboardIcon, Loader2, Trash2Icon, SettingsIcon, WrenchIcon, GaugeIcon, PowerIcon, MonitorIcon, HardDriveIcon, NetworkIcon, PuzzleIcon, ChevronDownIcon, ChevronRightIcon, RefreshCwIcon, UserIcon, LogOutIcon, CheckCircleIcon, AlertTriangle, CloudIcon } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { setLocale, type Locale } from '../lib/i18n';
@@ -326,6 +326,107 @@ function AccountTab({ user }: { user?: any }) {
   );
 }
 
+function CloudSyncTab({ settings, update }: { settings: any; update: (patch: any) => void }) {
+  const [token, setToken] = useState(settings.cloud_sync_token || '');
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState(settings.cloud_sync_last || '');
+  const [gistId, setGistId] = useState<string | null>(null);
+  const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState<'success' | 'error'>('success');
+
+  useEffect(() => {
+    if (token) {
+      invoke<string | null>('sync_get_gist_id', { githubToken: token }).then(id => {
+        setGistId(id);
+      }).catch(() => {});
+    }
+  }, [token]);
+
+  const handleExport = async () => {
+    if (!token.trim()) { setMsg('Enter a GitHub token first'); setMsgType('error'); return; }
+    setSyncing(true); setMsg('');
+    try {
+      const result = await invoke<string>('sync_export_to_gist', { githubToken: token });
+      setMsg(result); setMsgType('success');
+      const now = new Date().toISOString();
+      setLastSync(now);
+      update({ cloud_sync_token: token, cloud_sync_last: now });
+    } catch (e: any) {
+      setMsg(String(e)); setMsgType('error');
+    } finally { setSyncing(false); }
+  };
+
+  const handleImport = async () => {
+    if (!token.trim()) { setMsg('Enter a GitHub token first'); setMsgType('error'); return; }
+    setSyncing(true); setMsg('');
+    try {
+      const result = await invoke<string>('sync_import_from_gist', { githubToken: token });
+      setMsg(result + ' — Restart app to apply'); setMsgType('success');
+    } catch (e: any) {
+      setMsg(String(e)); setMsgType('error');
+    } finally { setSyncing(false); }
+  };
+
+  return (
+    <div className="space-y-6">
+      <GlassCard className="p-6">
+        <h3 className="font-semibold mb-4 flex items-center gap-2"><CloudIcon className="w-5 h-5 text-cyan-400" /> Cloud Sync</h3>
+        <p className="text-sm text-mvo-textDim mb-4">Sync your settings, chat history, and preferences across devices using a private GitHub Gist.</p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-mvo-textDim mb-1">GitHub Personal Access Token</label>
+            <input type="password" value={token} onChange={e => setToken(e.target.value)} className="w-full input" placeholder="ghp_..." />
+            <p className="text-[10px] text-mvo-textDim mt-1">
+              Create one at <span className="text-cyan-400">github.com/settings/tokens</span> with <strong>gist</strong> scope
+            </p>
+          </div>
+
+          {gistId && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-green-400/5 border border-green-400/20">
+              <CheckCircleIcon className="w-4 h-4 text-green-400" />
+              <span className="text-xs text-green-400">Sync gist connected: {gistId.slice(0, 8)}...</span>
+            </div>
+          )}
+
+          {lastSync && (
+            <p className="text-xs text-mvo-textDim">Last synced: {new Date(lastSync).toLocaleString()}</p>
+          )}
+
+          {msg && (
+            <div className={`p-3 rounded-xl text-sm ${msgType === 'success' ? 'bg-green-400/10 border border-green-400/30 text-green-400' : 'bg-red-400/10 border border-red-400/30 text-red-400'}`}>
+              {msg}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button onClick={handleExport} disabled={syncing || !token.trim()} className="btn-primary flex items-center gap-2">
+              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadIcon className="w-4 h-4" />}
+              {syncing ? 'Syncing...' : 'Upload to Cloud'}
+            </button>
+            <button onClick={handleImport} disabled={syncing || !token.trim()} className="btn-secondary flex items-center gap-2">
+              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
+              {syncing ? 'Syncing...' : 'Download from Cloud'}
+            </button>
+          </div>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-6">
+        <h3 className="font-semibold mb-3">What Gets Synced</h3>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="flex items-center gap-2 text-green-400"><CheckCircleIcon className="w-4 h-4" /> Settings & preferences</div>
+          <div className="flex items-center gap-2 text-green-400"><CheckCircleIcon className="w-4 h-4" /> AI chat history</div>
+          <div className="flex items-center gap-2 text-green-400"><CheckCircleIcon className="w-4 h-4" /> Theme & language</div>
+          <div className="flex items-center gap-2 text-green-400"><CheckCircleIcon className="w-4 h-4" /> Dashboard layout</div>
+          <div className="flex items-center gap-2 text-mvo-textDim"><AlertTriangle className="w-4 h-4" /> Game install paths (machine-specific)</div>
+          <div className="flex items-center gap-2 text-mvo-textDim"><AlertTriangle className="w-4 h-4" /> Download progress (transient)</div>
+        </div>
+      </GlassCard>
+    </div>
+  );
+}
+
 export function Settings({ settings: parentSettings, onSettingsChange, user, defaultTab }: { settings?: any; onSettingsChange?: (s: any) => void; user?: any; defaultTab?: string } = {}) {
   useLocale();
   const [settings, setSettings] = useState<any>(parentSettings || {});
@@ -395,6 +496,7 @@ export function Settings({ settings: parentSettings, onSettingsChange, user, def
   const tabs = [
     { id: 'general', label: t('settings.general'), icon: SettingsIcon },
     { id: 'ai', label: 'AI', icon: BrainIcon },
+    { id: 'sync', label: 'Cloud Sync', icon: CloudIcon },
     { id: 'advanced', label: t('settings.advanced'), icon: ShieldIcon },
     { id: 'updates', label: 'Updates', icon: RefreshCwIcon },
     { id: 'account', label: 'Account', icon: UserIcon },
@@ -634,6 +736,10 @@ export function Settings({ settings: parentSettings, onSettingsChange, user, def
             </div>
           </GlassCard>
         </div>
+      )}
+
+      {activeTab === 'sync' && (
+        <CloudSyncTab settings={settings} update={update} />
       )}
 
       {activeTab === 'advanced' && (
