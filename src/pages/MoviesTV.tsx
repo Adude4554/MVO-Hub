@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Play, Loader2, AlertTriangle, Search, ChevronLeft } from 'lucide-react';
+import { Play, Loader2, AlertTriangle, Search, ChevronLeft, Check } from 'lucide-react';
 import { FeaturedRow } from '../components/FeaturedRow';
 
 interface MediaItem {
@@ -10,6 +10,24 @@ interface MediaItem {
   embed_url_tmdb: string | null;
   quality: string;
   time_added: string;
+}
+
+interface TMDBSeason {
+  season_number: number;
+  name: string;
+  episode_count: number;
+  poster_path: string | null;
+  air_date: string | null;
+}
+
+interface TMDBEpisode {
+  episode_number: number;
+  season_number: number;
+  name: string;
+  overview: string;
+  still_path: string | null;
+  air_date: string | null;
+  runtime: number | null;
 }
 
 const GRADIENTS = [
@@ -38,9 +56,39 @@ function cleanTitle(title: string) {
   return title.replace(/\s*\b(19|20)\d{2}\b\s*$/, '').trim();
 }
 
-function tmdbPosterUrl(tmdbId: string, mediaType: 'movie' | 'tv') {
-  // Returns TMDB CDN URL — will 404 if no poster, img tag handles fallback
-  return `https://image.tmdb.org/t/p/w500/poster`;
+function getWatchedKey(): string {
+  return 'mvo_tv_watched';
+}
+
+function getWatchedEpisodes(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(getWatchedKey());
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function markEpisodeWatched(showId: string, season: number, episode: number) {
+  const watched = getWatchedEpisodes();
+  const key = `${showId}_s${season}_e${episode}`;
+  watched[key] = true;
+  localStorage.setItem(getWatchedKey(), JSON.stringify(watched));
+}
+
+function isEpisodeWatched(showId: string, season: number, episode: number): boolean {
+  const watched = getWatchedEpisodes();
+  const key = `${showId}_s${season}_e${episode}`;
+  return !!watched[key];
+}
+
+function buildTvEmbedUrl(item: MediaItem, season?: number, episode?: number): string {
+  if (season !== undefined && episode !== undefined && item.tmdb_id) {
+    return `https://vidsrcme.ru/embed/tv?tmdb=${item.tmdb_id}&season=${season}&episode=${episode}`;
+  }
+  if (item.embed_url_tmdb) return item.embed_url_tmdb;
+  if (item.tmdb_id) return `https://vidsrcme.ru/embed/tv?tmdb=${item.tmdb_id}`;
+  return item.embed_url;
 }
 
 const FEATURED_MOVIES = [
@@ -119,8 +167,13 @@ export function MoviesTV() {
   const [currentPage, setCurrentPage] = useState(1);
   const [maxPages, setMaxPages] = useState(1);
   const [posters, setPosters] = useState<Record<string, string>>({});
+  const [watchedTick, setWatchedTick] = useState(0);
 
-  // Fetch items when tab changes
+  const [seasons, setSeasons] = useState<TMDBSeason[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState(1);
+  const [episodes, setEpisodes] = useState<TMDBEpisode[]>([]);
+  const [loadingSeasons, setLoadingSeasons] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -149,7 +202,6 @@ export function MoviesTV() {
     return () => { cancelled = true; };
   }, [tab]);
 
-  // Fetch posters via TMDB API (get poster_path, use CDN URL directly) — throttled to 2 concurrent, 500ms apart
   useEffect(() => {
     if (items.length === 0) return;
     let cancelled = false;
@@ -183,6 +235,41 @@ export function MoviesTV() {
     return () => { cancelled = true; };
   }, [items, tab]);
 
+  useEffect(() => {
+    if (!selectedItem || tab === 'movies' || !selectedItem.tmdb_id) {
+      setSeasons([]);
+      setEpisodes([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingSeasons(true);
+    fetch(`https://api.themoviedb.org/3/tv/${selectedItem.tmdb_id}?api_key=${TMDB_KEY}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        const s = (data.seasons || []).filter((s: TMDBSeason) => s.season_number > 0);
+        setSeasons(s);
+        if (s.length > 0) setSelectedSeason(s[0].season_number);
+        setLoadingSeasons(false);
+      })
+      .catch(() => { if (!cancelled) setLoadingSeasons(false); });
+    return () => { cancelled = true; };
+  }, [selectedItem, tab]);
+
+  useEffect(() => {
+    if (!selectedItem || tab === 'movies' || !selectedItem.tmdb_id || !selectedSeason) return;
+    let cancelled = false;
+    setEpisodes([]);
+    fetch(`https://api.themoviedb.org/3/tv/${selectedItem.tmdb_id}/season/${selectedSeason}?api_key=${TMDB_KEY}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        setEpisodes(data.episodes || []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedItem, tab, selectedSeason]);
+
   const loadMore = useCallback(() => {
     if (loadingMore || currentPage >= maxPages) return;
     setLoadingMore(true);
@@ -206,8 +293,27 @@ export function MoviesTV() {
     return m.title.toLowerCase().includes(search.toLowerCase());
   });
 
-// Player view
-  if (selectedItem) {
+  const handleMovieSelect = (item: MediaItem) => {
+    const embedUrl = `https://vidsrcme.ru/embed/movie?imdb=${item.imdb_id}`;
+    setSelectedItem(item);
+    setSelectedEmbed(embedUrl);
+  };
+
+  const handleTvShowSelect = (item: MediaItem) => {
+    setSelectedItem(item);
+    setSeasons([]);
+    setEpisodes([]);
+    setSelectedSeason(1);
+  };
+
+  const handleEpisodePlay = (item: MediaItem, season: number, episode: number) => {
+    const embedUrl = buildTvEmbedUrl(item, season, episode);
+    setSelectedEmbed(embedUrl);
+    markEpisodeWatched(item.tmdb_id || item.imdb_id, season, episode);
+    setWatchedTick(t => t + 1);
+  };
+
+  if (selectedItem && selectedEmbed && tab === 'movies') {
     return (
       <div className="space-y-4 h-full flex flex-col">
         <div className="flex items-center gap-3">
@@ -233,7 +339,121 @@ export function MoviesTV() {
     );
   }
 
-  // Grid view
+  if (selectedItem && tab === 'tv') {
+    const showId = selectedItem.tmdb_id || selectedItem.imdb_id;
+    return (
+      <div className="space-y-4 h-full flex flex-col overflow-hidden">
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <button
+            onClick={() => { setSelectedItem(null); setSelectedEmbed(''); setSeasons([]); setEpisodes([]); }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-mvo-panel border border-mvo-border/50 hover:bg-mvo-panelHover text-mvo-text text-sm transition-all"
+          >
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
+          <h2 className="font-display text-lg font-bold text-mvo-text truncate">{cleanTitle(selectedItem.title)}</h2>
+        </div>
+
+        {selectedEmbed && (
+          <div className="flex-shrink-0 rounded-xl overflow-hidden border border-mvo-border/30" style={{ height: '50vh' }}>
+            <iframe
+              src={selectedEmbed}
+              className="w-full h-full border-0"
+              frameBorder="0"
+              allowFullScreen
+              allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write"
+            />
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 scrollbar-hide">
+          {loadingSeasons ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+              <span className="ml-2 text-mvo-textDim text-sm">Loading seasons...</span>
+            </div>
+          ) : seasons.length > 0 ? (
+            <>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                {seasons.map(s => (
+                  <button
+                    key={s.season_number}
+                    onClick={() => setSelectedSeason(s.season_number)}
+                    className={`flex-shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      selectedSeason === s.season_number
+                        ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30'
+                        : 'text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover border border-transparent'
+                    }`}
+                  >
+                    Season {s.season_number}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid gap-3">
+                {episodes.map(ep => {
+                  const isWatched = isEpisodeWatched(showId, ep.season_number, ep.episode_number);
+                  return (
+                    <div
+                      key={ep.episode_number}
+                      onClick={() => handleEpisodePlay(selectedItem, ep.season_number, ep.episode_number)}
+                      className={`group cursor-pointer rounded-xl overflow-hidden border transition-all duration-200 hover:shadow-lg hover:shadow-cyan-400/5 ${
+                        isWatched
+                          ? 'bg-mvo-panel/50 border-mvo-border/20 opacity-60'
+                          : 'bg-mvo-panel border-mvo-border/30 hover:border-cyan-400/40'
+                      }`}
+                    >
+                      <div className="flex gap-3 p-3">
+                        <div className="relative w-32 h-20 flex-shrink-0 rounded-lg overflow-hidden">
+                          {ep.still_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
+                              alt={ep.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                              <span className="text-xs font-bold text-white/40">E{ep.episode_number}</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-200 flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                              <Play className="w-5 h-5 text-white ml-0.5" fill="white" />
+                            </div>
+                          </div>
+                          {isWatched && (
+                            <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-cyan-400 flex items-center justify-center z-10">
+                              <Check className="w-3 h-3 text-black" strokeWidth={3} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-mvo-textMuted font-medium">E{ep.episode_number}</span>
+                            <h4 className="font-medium text-sm text-mvo-text truncate">{ep.name}</h4>
+                          </div>
+                          {ep.overview && (
+                            <p className="text-xs text-mvo-textMuted mt-1 line-clamp-2">{ep.overview}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1 text-xs text-mvo-textMuted">
+                            {ep.air_date && <span>{ep.air_date}</span>}
+                            {ep.runtime && <><span>•</span><span>{ep.runtime}m</span></>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8 text-mvo-textMuted text-sm">No season data available</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -241,54 +461,58 @@ export function MoviesTV() {
         {loading && <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />}
       </div>
 
-      {/* Tab Toggle */}
       <div className="flex gap-2">
         <button
-          onClick={() => setTab('movies')}
+          onClick={() => { setTab('movies'); setSelectedItem(null); setSelectedEmbed(''); }}
           className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
             tab === 'movies'
               ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30'
               : 'text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover border border-transparent'
           }`}
         >
-          🎬 Movies
+          Movies
         </button>
         <button
-          onClick={() => setTab('tv')}
+          onClick={() => { setTab('tv'); setSelectedItem(null); setSelectedEmbed(''); }}
           className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
             tab === 'tv'
               ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30'
               : 'text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover border border-transparent'
           }`}
         >
-          📺 TV Shows
+          TV Shows
         </button>
       </div>
 
-      {/* Featured */}
-       <FeaturedRow
-         items={tab === 'movies' ? FEATURED_MOVIES : FEATURED_TV}
-         onSelect={(item) => {
-           let embedUrl = '';
-           if (tab === 'movies') {
-             embedUrl = `https://vidsrcme.ru/embed/movie?imdb=${item.imdbId}`;
-           } else {
-             embedUrl = `https://vidsrcme.ru/embed/tv/${item.tmdbId}`;
-           }
-           setSelectedItem({ 
-             embed_url: embedUrl, 
-             title: item.title, 
-             quality: '', 
-             imdb_id: tab === 'movies' ? item.imdbId : '', 
-             tmdb_id: tab === 'tv' ? item.tmdbId : null, 
-             embed_url_tmdb: null, 
-             time_added: '' 
-           });
-           setSelectedEmbed(embedUrl);
-         }}
-       />
+      <FeaturedRow
+        items={tab === 'movies' ? FEATURED_MOVIES : FEATURED_TV}
+        onSelect={(item) => {
+          if (tab === 'movies') {
+            const embedUrl = `https://vidsrcme.ru/embed/movie?imdb=${item.imdbId}`;
+            setSelectedItem({
+              embed_url: embedUrl,
+              title: item.title,
+              quality: '',
+              imdb_id: item.imdbId,
+              tmdb_id: null,
+              embed_url_tmdb: null,
+              time_added: ''
+            });
+            setSelectedEmbed(embedUrl);
+          } else {
+            setSelectedItem({
+              embed_url: '',
+              title: item.title,
+              quality: '',
+              imdb_id: '',
+              tmdb_id: item.tmdbId,
+              embed_url_tmdb: `https://vidsrcme.ru/embed/tv?tmdb=${item.tmdbId}`,
+              time_added: ''
+            });
+          }
+        }}
+      />
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-mvo-textMuted" />
         <input
@@ -315,25 +539,18 @@ export function MoviesTV() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {filtered.map(item => (
-           <MediaCard
-             key={item.imdb_id}
-             item={item}
-             poster={item.tmdb_id ? posters[item.tmdb_id] : undefined}
-             onClick={() => {
-               let embedUrl = '';
-               if (tab === 'movies') {
-                 embedUrl = `https://vidsrcme.ru/embed/movie?imdb=${item.imdb_id}`;
-               } else {
-                 if (item.tmdb_id) {
-                   embedUrl = `https://vidsrcme.ru/embed/tv/${item.tmdb_id}`;
-                 } else {
-                   embedUrl = item.embed_url;
-                 }
-               }
-               setSelectedItem(item);
-               setSelectedEmbed(embedUrl);
-             }}
-           />
+          <MediaCard
+            key={item.imdb_id}
+            item={item}
+            poster={item.tmdb_id ? posters[item.tmdb_id] : undefined}
+            onClick={() => {
+              if (tab === 'movies') {
+                handleMovieSelect(item);
+              } else {
+                handleTvShowSelect(item);
+              }
+            }}
+          />
         ))}
       </div>
 

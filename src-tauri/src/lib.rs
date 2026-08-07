@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+﻿use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -767,6 +767,33 @@ fn start_performance_engine() -> Result<String, String> {
             let uptime_hours = uptime_seconds / 3600;
             let uptime_minutes = (uptime_seconds % 3600) / 60;
 
+            let mut gpu_name = "FPS Monitor handles GPU/FPS in-game".to_string();
+            let mut gpu_load = "0".to_string();
+            let mut gpu_temp = "Overlay".to_string();
+            let mut gpu_memory_used = "0".to_string();
+            let mut gpu_memory_total = "0".to_string();
+            let mut gpu_power = "Overlay".to_string();
+            if let Ok(output) = Command::new("nvidia-smi")
+                .args(["--query-gpu=name,memory.total,memory.used,memory.free,temperature.gpu,utilization.gpu,driver_version,power.draw", "--format=csv,noheader,nounits"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+            {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                    let parts: Vec<&str> = stdout.trim().split(", ").collect();
+                    if parts.len() >= 8 {
+                        gpu_name = parts[0].trim().to_string();
+                        let memory_total_mb = parts[1].trim().parse::<u64>().unwrap_or(0);
+                        gpu_memory_total = (memory_total_mb * 1_000_000).to_string();
+                        let memory_used_mb = parts[2].trim().parse::<u64>().unwrap_or(0);
+                        gpu_memory_used = (memory_used_mb * 1_000_000).to_string();
+                        gpu_power = format!("{:.0}", parts[7].trim().parse::<f64>().unwrap_or(0.0));
+                        gpu_temp = format!("{:.1}", parts[4].trim().parse::<f64>().unwrap_or(0.0));
+                        gpu_load = parts[5].trim().parse::<u64>().unwrap_or(0).to_string();
+                    }
+                }
+            }
+
             let snapshot = SystemSnapshot {
                 cpu_name,
                 cpu_load,
@@ -777,12 +804,12 @@ fn start_performance_engine() -> Result<String, String> {
                 storage_total_gb: format!("{:.0}", storage_total_gb),
                 storage_load: format!("{:.0}", storage_load),
                 uptime: format!("{}h {}m", uptime_hours, uptime_minutes),
-                gpu_name: "FPS Monitor handles GPU/FPS in-game".to_string(),
-                gpu_load: "0".to_string(),
-                gpu_temp: "Overlay".to_string(),
-                gpu_memory_used: "0".to_string(),
-                gpu_memory_total: "0".to_string(),
-                gpu_power: "Overlay".to_string(),
+                gpu_name,
+                gpu_load,
+                gpu_temp,
+                gpu_memory_used,
+                gpu_memory_total,
+                gpu_power,
                 fps: "Overlay".to_string(),
                 fan: "Overlay".to_string(),
                 engine_status: "Running".to_string(),
@@ -1614,7 +1641,7 @@ fn open_control_panel() -> Result<String, String> {
     Ok("Opened Control Panel.".to_string())
 }
 
-// ── Advanced Windows Features ──
+// ΓöÇΓöÇ Advanced Windows Features ΓöÇΓöÇ
 
 #[tauri::command]
 fn open_windows_update() -> Result<String, String> {
@@ -2117,7 +2144,7 @@ fn open_print_management() -> Result<String, String> {
 }
 
 
-// ── Updater ──
+// ΓöÇΓöÇ Updater ΓöÇΓöÇ
 
 #[tauri::command]
 async fn check_for_updates(app: tauri::AppHandle) -> Result<String, String> {
@@ -2163,7 +2190,7 @@ async fn download_and_install_update(app: tauri::AppHandle) -> Result<String, St
     }
 }
 
-// ── User Accounts ──
+// ΓöÇΓöÇ User Accounts ΓöÇΓöÇ
 
 #[tauri::command]
 fn create_account(username: String, email: String, password: String) -> Result<String, String> {
@@ -2993,7 +3020,7 @@ const GAME_EXE_BLACKLIST: &[&str] = &[
 
 fn is_game_exe_name(name: &str) -> bool {
     let lower = name.to_lowercase();
-    // Use file_name() not file_stem() — file_stem() returns "" for paths ending in \
+    // Use file_name() not file_stem() ΓÇö file_stem() returns "" for paths ending in \
     let stem = std::path::Path::new(&lower).file_name().and_then(|s| s.to_str()).unwrap_or("");
 
     // Reject if stem is too short (likely a utility)
@@ -3079,7 +3106,7 @@ fn scan_custom_games() -> Result<serde_json::Value, String> {
         if d.exists() { scan_roots.push(d.clone()); }
     }
 
-    // 3) If no roots found, do a minimal safe scan — only drive-root-level dirs named "Games"
+    // 3) If no roots found, do a minimal safe scan ΓÇö only drive-root-level dirs named "Games"
     if scan_roots.is_empty() {
         for drive in 'C'..='Z' {
             let games_dir = PathBuf::from(format!("{}:\\Games", drive));
@@ -3694,7 +3721,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
     let total_bytes = resp.content_length().unwrap_or(0);
 
     if content_type.contains("text/html") {
-        let err_msg = format!("{}: link returned an HTML page — may need a browser", item.name);
+        let err_msg = format!("{}: link returned an HTML page ΓÇö may need a browser", item.name);
         {
             let db = gv_db()?;
             let db = db.lock().map_err(|e| e.to_string())?;
@@ -3775,7 +3802,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
                     let lower = header.to_lowercase();
                     if lower.starts_with("<!doctype") || lower.starts_with("<html") || lower.contains("<head>") || lower.contains("<title>") {
                         let _ = fs::remove_file(&temp_file);
-                        let err_msg = format!("{}: download returned an HTML page instead of a game file — link may have expired", item.name);
+                        let err_msg = format!("{}: download returned an HTML page instead of a game file ΓÇö link may have expired", item.name);
                         {
                             let db = gv_db()?;
                             let db = db.lock().map_err(|e| e.to_string())?;
@@ -3858,7 +3885,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
     let mut _ran_setup = false;
 
     match file_type {
-        // ── EXE: setup installer or portable game ──
+        // ΓöÇΓöÇ EXE: setup installer or portable game ΓöÇΓöÇ
         gamevault::extractor::FileType::Exe | gamevault::extractor::FileType::NsisInstaller => {
             let is_installer = file_type == gamevault::extractor::FileType::NsisInstaller
                 || gamevault::extractor::is_setup_installer(&final_file);
@@ -3883,7 +3910,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
                     "total_files": 0u32,
                 }));
 
-                // Run the installer — hide the console window, let it show its own UI
+                // Run the installer ΓÇö hide the console window, let it show its own UI
                 #[cfg(target_os = "windows")]
                 let status = Command::new(&setup_dest)
                     .creation_flags(CREATE_NO_WINDOW)
@@ -3901,14 +3928,14 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
                 if !status.success() {
                     let err_msg = format!("Setup installer exited with code {:?} for {}", status.code(), item.name);
                     eprintln!("[gv_install] {}", err_msg);
-                    // Still try to find any exe that was installed — some installers don't return 0
+                    // Still try to find any exe that was installed ΓÇö some installers don't return 0
                 }
 
                 // After setup, scan the game dir for the actual game exe
                 // The installer may have created subdirectories
                 extract_ok = true;
             } else {
-                // Portable exe — move directly into game dir, no extraction needed
+                // Portable exe ΓÇö move directly into game dir, no extraction needed
                 let exe_dest = game_dir.join(final_file.file_name().unwrap_or_default());
                 fs::copy(&final_file, &exe_dest).map_err(|e| format!("Failed to copy game exe: {}", e))?;
                 let _ = fs::remove_file(&final_file);
@@ -3918,7 +3945,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
             }
         }
 
-        // ── Archives: extract with 7-Zip or ZIP crate ──
+        // ΓöÇΓöÇ Archives: extract with 7-Zip or ZIP crate ΓöÇΓöÇ
         gamevault::extractor::FileType::Zip | gamevault::extractor::FileType::Rar | gamevault::extractor::FileType::SevenZ => {
             let _ = app.emit("gv-download-progress", serde_json::json!({
                 "id": download_id, "progress": 100.0, "speed_bytes": 0u64,
@@ -3973,7 +4000,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
             }
         }
 
-        // ── Unknown format: try 7-Zip, then ZIP crate ──
+        // ΓöÇΓöÇ Unknown format: try 7-Zip, then ZIP crate ΓöÇΓöÇ
         gamevault::extractor::FileType::Unknown => {
             eprintln!("[gv_install] Unknown file type for {}, attempting extraction", item.name);
             let _ = app.emit("gv-download-progress", serde_json::json!({
@@ -4021,7 +4048,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
         return Err(err_msg);
     }
 
-    // Find the game exe — search the game dir (and one level deep for installer-created subdirs)
+    // Find the game exe ΓÇö search the game dir (and one level deep for installer-created subdirs)
     let exe_path = gamevault::extractor::find_exe_in_dir(&game_dir);
 
     let installed = gamevault::InstalledGame {

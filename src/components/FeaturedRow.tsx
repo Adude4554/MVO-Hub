@@ -12,7 +12,7 @@ interface FeaturedItem {
 
 interface FeaturedProps {
   items: FeaturedItem[];
-  onSelect: (item: { embed_url: string; title: string; quality: string }) => void;
+  onSelect: (item: FeaturedItem & { embed_url: string }) => void;
 }
 
 export function FeaturedRow({ items, onSelect }: FeaturedProps) {
@@ -65,8 +65,8 @@ export function FeaturedRow({ items, onSelect }: FeaturedProps) {
             onClick={() => {
               const embedUrl = item.mediaType === 'movie'
                 ? `https://vidsrcme.ru/embed/movie?imdb=${item.imdbId}`
-                : `https://vidsrcme.ru/embed/tv/${item.tmdbId}`;
-              onSelect({ embed_url: embedUrl, title: item.title, quality: 'HD' });
+                : `https://vidsrcme.ru/embed/tv?tmdb=${item.tmdbId}`;
+              onSelect({ ...item, embed_url: embedUrl });
             }}
           />
         ))}

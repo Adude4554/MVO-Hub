@@ -209,7 +209,7 @@ export function Movies({ settings }: MovieProps) {
 
       <FeaturedRow
         items={FEATURED_MOVIES}
-        onSelect={(item) => setSelectedMovie({ ...item, embed_url: item.embed_url, imdb_id: '', tmdb_id: null, embed_url_tmdb: null, time_added: '' })}
+        onSelect={(item) => setSelectedMovie({ ...item, quality: '', embed_url: item.embed_url, imdb_id: '', tmdb_id: null, embed_url_tmdb: null, time_added: '' })}
       />
 
       <div className="relative">

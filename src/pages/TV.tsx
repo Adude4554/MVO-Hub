@@ -216,7 +216,7 @@ export function TV({ settings }: TVProps) {
 
       <FeaturedRow
         items={FEATURED_TV}
-        onSelect={(item) => setSelectedShow({ ...item, embed_url: item.embed_url, imdb_id: '', tmdb_id: null, embed_url_tmdb: null, time_added: '' })}
+        onSelect={(item) => setSelectedShow({ ...item, quality: '', embed_url: item.embed_url, imdb_id: '', tmdb_id: null, embed_url_tmdb: null, time_added: '' })}
       />
 
       <div className="relative">
