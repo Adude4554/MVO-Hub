@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.2.3",
-    "notes": "Better Dashboard: live CPU/GPU history graphs, game library stats with platform breakdown.",
-    "pub_date": "2026-08-07T10:00:00Z",
+    "version": "0.2.4",
+    "notes": "Download Manager 2.0: ETA, retry, concurrent downloads, SHA-256 verification.",
+    "pub_date": "2026-08-07T11:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1JNQkZ5aFdQRUI0RHlWU3NsUjNERUpaamd5M2MyLzEyenN6czJxTGVRcWR3dDcrald0bnZYYjdVcmE0Z0tQSEFQai9lQnREbmlFNC81ZXFYdm9BU1FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTMyNjcxCWZpbGU6TVZPIEh1Yl8wLjIuM194NjQtc2V0dXAuZXhlCkNIK3JNODRKbmxLdkdhakZ2ejJNd3p6NmM0RWVjRThheUJPbVU3QUlLdC9wQ1g4ejAzbVlwc0hwVXlhLzEvd3g3MUtrUTdOMy8xWGZ2QkRkeFZ5QUF3PT0K",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.3/MVO.Hub_0.2.3_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1RDeW84MnFNL1NaczhFNENLVUt5M0FOT3VVbkpMZlV5YjJxNmZiaWtNNWZTWVVYOGRLNUpaY0IrUHE5RzhhWWVNUkxhbUpYdFRCcnBEZVU0ZVRRaXc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTM0MDUxCWZpbGU6TVZPIEh1Yl8wLjIuNF94NjQtc2V0dXAuZXhlCldDUWFkUksvNlRYVFNObEg3bW9kdllTdkthOG9mYUthbUpESitCajl1RFNBbGNaeFhuTW9IY0k5THVMWXVMbDMvMkJVamhYOWlzS2RDVHcrSDJwYkJnPT0K",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.4/MVO.Hub_0.2.4_x64-setup.exe"
         }
     }
 }

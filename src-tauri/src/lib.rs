@@ -3990,6 +3990,15 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
         tokens.remove(&download_id);
     }
 
+    // Compute SHA-256 checksum of downloaded file
+    let file_checksum = {
+        use sha2::{Sha256, Digest};
+        let bytes = fs::read(&temp_file).map_err(|e| format!("Failed to read file for checksum: {}", e))?;
+        let mut hasher = Sha256::new();
+        hasher.update(&bytes);
+        format!("{:x}", hasher.finalize())
+    };
+
     // Detect actual file format from magic bytes if we couldn't determine from URL/content-type
     if ext == "bin" {
         if let Ok(header) = fs::read(&temp_file).map(|d| {
@@ -4216,7 +4225,7 @@ async fn gv_install(app: tauri::AppHandle, item_id: String, install_dir: Option<
         play_time_seconds: 0,
         is_favorite: false,
         tags: serde_json::to_string(&vec![item.category.clone()]).unwrap_or_else(|_| "[]".to_string()),
-        checksum: None,
+        checksum: Some(file_checksum),
     };
 
     {
@@ -4329,6 +4338,25 @@ fn gv_cancel_download(id: String) -> Result<(), String> {
     let db = gv_db()?;
     let db = db.lock().map_err(|e| e.to_string())?;
     let _ = db.update_download(&id, "cancelled", 0.0, 0, 0);
+    Ok(())
+}
+
+#[tauri::command]
+async fn gv_retry_download(app: tauri::AppHandle, id: String, store_item_id: String) -> Result<(), String> {
+    let db = gv_db()?;
+    {
+        let db = db.lock().map_err(|e| e.to_string())?;
+        db.remove_download(&id)?;
+    }
+    gv_install(app, store_item_id, None).await?;
+    Ok(())
+}
+
+#[tauri::command]
+fn gv_remove_download(id: String) -> Result<(), String> {
+    let db = gv_db()?;
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.remove_download(&id)?;
     Ok(())
 }
 
@@ -4545,6 +4573,8 @@ pub fn run() {
             gv_launch,
             gv_repair,
             gv_cancel_download,
+            gv_retry_download,
+            gv_remove_download,
             gv_open_game_folder,
             open_windows_update,
             open_event_viewer,

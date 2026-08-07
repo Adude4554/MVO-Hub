@@ -287,10 +287,29 @@ export function useGameVaultDownloads() {
   const cancel = useCallback(async (id: string) => {
     try {
       await invoke('gv_cancel_download', { id });
-      setDownloads(prev => prev.filter(d => d.id !== id));
+      setDownloads(prev => prev.map(d => d.id === id ? { ...d, status: 'cancelled' } : d));
       setProgress(prev => { const next = new Map(prev); next.delete(id); return next; });
     } catch (e) {
       console.error('Cancel failed:', e);
+    }
+  }, []);
+
+  const retry = useCallback(async (item: DownloadItem) => {
+    try {
+      await invoke('gv_retry_download', { id: item.id, storeItemId: item.store_item_id });
+      setDownloads(prev => prev.map(d => d.id === item.id ? { ...d, status: 'downloading', progress: 0, error: null } : d));
+    } catch (e) {
+      console.error('Retry failed:', e);
+    }
+  }, []);
+
+  const removeDownload = useCallback(async (id: string) => {
+    try {
+      await invoke('gv_remove_download', { id });
+      setDownloads(prev => prev.filter(d => d.id !== id));
+      setProgress(prev => { const next = new Map(prev); next.delete(id); return next; });
+    } catch (e) {
+      console.error('Remove failed:', e);
     }
   }, []);
 
@@ -343,15 +362,19 @@ export function useGameVaultDownloads() {
 
   const activeDownloads = downloads.filter(d => d.status === 'downloading');
   const completedDownloads = downloads.filter(d => d.status === 'completed');
+  const failedDownloads = downloads.filter(d => d.status === 'failed' || d.status === 'cancelled');
 
   return {
     downloads,
     activeDownloads,
     completedDownloads,
+    failedDownloads,
     progress,
     extractProgress,
     loading,
     cancel,
+    retry,
+    removeDownload,
     refresh: loadDownloads,
     formatSize,
     formatSpeed,

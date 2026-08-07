@@ -3,7 +3,7 @@ import { GlassCard } from '../components/ui';
 import {
   Search, Loader2, AlertTriangle, Download, ExternalLink, Package,
   Trash2, Play, FolderOpen, Star, RefreshCw, Pause, X, CheckCircle,
-  ArrowDownToLine, HardDrive, Clock, ChevronDown, ShieldCheck, Folder,
+  ArrowDownToLine, HardDrive, Clock, ChevronDown, ShieldCheck, Folder, RotateCcw,
 } from 'lucide-react';
 import {
   useGameVaultStore, useGameVaultLibrary, useGameVaultDownloads,
@@ -13,6 +13,13 @@ import { useLocale } from '../hooks/useLocale';
 import { t } from '../lib/i18n';
 
 type Tab = 'store' | 'library' | 'downloads';
+
+function formatEta(seconds: number): string {
+  if (seconds <= 0 || !isFinite(seconds)) return '';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
 
 export function GameVault() {
   useLocale();
@@ -383,7 +390,7 @@ function DownloadsTab() {
   useLocale();
   const {
     downloads, activeDownloads, progress, extractProgress,
-    loading, cancel, formatSize, formatSpeed, refresh,
+    loading, cancel, retry, removeDownload, formatSize, formatSpeed, refresh,
   } = useGameVaultDownloads();
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-cyan-400" /></div>;
@@ -442,7 +449,11 @@ function DownloadsTab() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs text-mvo-textDim">
                         <span>{formatSize(downloaded)} / {formatSize(total)}</span>
-                        <span>{formatSpeed(speed)} &middot; {Math.round(pct)}%</span>
+                        <span>
+                          {formatSpeed(speed)}
+                          {speed > 0 && total > 0 && ` · ETA ${formatEta((total - downloaded) / speed)}`}
+                          {' · '}{Math.round(pct)}%
+                        </span>
                       </div>
                       <div className="w-full bg-mvo-panel/50 rounded-full h-2">
                         <div className="bg-cyan-400 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -468,6 +479,8 @@ function DownloadsTab() {
                   <div className="flex items-center gap-3">
                     {item.status === 'completed' ? (
                       <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    ) : item.status === 'cancelled' ? (
+                      <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
                     ) : (
                       <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
                     )}
@@ -481,13 +494,31 @@ function DownloadsTab() {
                       )}
                     </div>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded ${
-                    item.status === 'completed' ? 'bg-green-400/10 text-green-400' :
-                    item.status === 'cancelled' ? 'bg-yellow-400/10 text-yellow-400' :
-                    'bg-red-400/10 text-red-400'
-                  }`}>
-                    {item.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {(item.status === 'failed' || item.status === 'cancelled') && (
+                      <button
+                        onClick={() => retry(item)}
+                        className="text-cyan-400 hover:text-cyan-300 p-1"
+                        title="Retry download"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => removeDownload(item.id)}
+                      className="text-mvo-textDim hover:text-red-400 p-1"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      item.status === 'completed' ? 'bg-green-400/10 text-green-400' :
+                      item.status === 'cancelled' ? 'bg-yellow-400/10 text-yellow-400' :
+                      'bg-red-400/10 text-red-400'
+                    }`}>
+                      {item.status}
+                    </span>
+                  </div>
                 </div>
               </GlassCard>
             ))}
