@@ -3045,7 +3045,7 @@ dependencies = [
 
 [[package]]
 name = "project-mvo-app"
-version = "0.1.0"
+version = "0.2.10"
 dependencies = [
  "base64 0.22.1",
  "dirs 5.0.1",

@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.2.10",
-    "notes": "Fixed black screen crash, GameVault store loading, updater shows 'latest version' message.",
-    "pub_date": "2026-08-07T18:00:00Z",
+    "version": "0.2.11",
+    "notes": "Fixed updater version mismatch (Cargo.toml was 0.1.0), fixed '0' rendering bug in Settings.",
+    "pub_date": "2026-08-07T18:30:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMHNRa3o4U0d5RnJqc2xBU0c5dFlvZlJ6bkYxeFE2UmhQTEltQXJyQXZrNWxRVG53NTA1ejJBMVNkSTJjTGdXYkE4OTJpTkJIVUFnSHJCWTEweTBlbEFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQzNDYxCWZpbGU6TVZPIEh1Yl8wLjIuMTBfeDY0LXNldHVwLmV4ZQpRQit6MzByb3cxWTZsYWhRY1pTYlE5U3JSUDR3a2E2MVQxckdnRHNqdjhvYUpkMGt0bGh5ZkNmOEkxVUg5RGQ3UXFndnI2Nkh1SHpSMlJDZnVXMU9CUT09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.10/MVO.Hub_0.2.10_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMHE1all6WTJqd2RhSlNUNlMraE9VZUlkZmw3cTNpUmoxOXZWbjM2WG5vODZ3UHlCV28rYTV2NGs5M3ZTL0IxeDZzV3JkWlB3ZHlPaEFqMzRtUE9MMHdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQ0Njc2CWZpbGU6TVZPIEh1Yl8wLjIuMTFfeDY0LXNldHVwLmV4ZQozY3BXOGJDc050WXQwWVY2TTJFdjB6VGpKUWFEL1FNQmVPc2VzS3lMNHpvRDRGaW9Hd1NFMWRIZmh5MUZ3cFp1ODJtQ1lHMGZ0aFBIN3Q1VGt1Q2dCQT09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.11/MVO.Hub_0.2.11_x64-setup.exe"
         }
     }
 }

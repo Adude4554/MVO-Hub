@@ -177,7 +177,7 @@ function UpdatesTab() {
             <div>
               <p className="font-medium text-cyan-400">Update v{updateInfo.version} available</p>
               {updateInfo.pub_date && <p className="text-[10px] text-mvo-textMuted">Released: {updateInfo.pub_date}</p>}
-              {updateInfo.file_size && updateInfo.file_size > 0 && (
+              {updateInfo.file_size != null && updateInfo.file_size > 0 && (
                 <p className="text-[10px] text-mvo-textMuted">Size: {(updateInfo.file_size / 1024 / 1024).toFixed(1)} MB</p>
               )}
             </div>
