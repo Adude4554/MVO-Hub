@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { GlassCard } from '../components/ui';
 import { RotateCcwIcon, DownloadIcon, UploadIcon, FolderOpenIcon, ShieldIcon, BrainIcon, LayoutDashboardIcon, Loader2, Trash2Icon, SettingsIcon, WrenchIcon, GaugeIcon, PowerIcon, MonitorIcon, HardDriveIcon, NetworkIcon, PuzzleIcon, ChevronDownIcon, ChevronRightIcon, RefreshCwIcon, UserIcon, LogOutIcon } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { setLocale, type Locale } from '../lib/i18n';
 import { useLocale } from '../hooks/useLocale';
 import { t } from '../lib/i18n';
+import { useUpdater } from '../hooks/useUpdater';
 
 interface AppSettings {
   theme: string;
@@ -95,39 +97,34 @@ function PowerPlanSelector() {
 }
 
 function UpdatesTab() {
-  const [currentVersion] = useState('0.1.0');
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updateVersion, setUpdateVersion] = useState('');
-  const [updateNotes, setUpdateNotes] = useState('');
+  const { updateInfo, downloading: updateDownloading, installUpdate, checkForUpdates } = useUpdater();
+  const [currentVersion, setCurrentVersion] = useState('');
   const [checking, setChecking] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const [status, setStatus] = useState('');
 
-  const checkForUpdates = async () => {
+  useEffect(() => {
+    const loadVersion = async () => {
+      try {
+        const version = await getVersion();
+        setCurrentVersion(version);
+      } catch (e) {
+        console.error('Failed to get version:', e);
+        setCurrentVersion('unknown');
+      }
+    };
+    loadVersion();
+  }, []);
+
+  const handleCheckForUpdates = async () => {
     setChecking(true);
     setStatus('');
     try {
-      const result = await invoke<string>('check_for_updates');
-      const info = JSON.parse(result);
-      if (info.available) {
-        setUpdateAvailable(true);
-        setUpdateVersion(info.version);
-        setUpdateNotes(info.notes || '');
-        setStatus(`Update v${info.version} is available`);
-      } else {
-        setUpdateAvailable(false);
-        setStatus('You have the latest version downloaded already');
-      }
+      await checkForUpdates();
     } catch (e) {
-      setStatus('You have the latest version downloaded already');
+      setStatus('Failed to check for updates');
     } finally {
       setChecking(false);
     }
-  };
-
-  const installUpdate = async () => {
-    setDownloading(true);
-    try { await invoke('download_and_install_update'); } catch (e) { setStatus('Failed: ' + String(e)); setDownloading(false); }
   };
 
   return (
@@ -139,18 +136,18 @@ function UpdatesTab() {
             <p className="text-sm text-mvo-text">Current version: <span className="text-cyan-400 font-mono">v{currentVersion}-beta</span></p>
             {status && <p className="text-xs text-mvo-textDim mt-1">{status}</p>}
           </div>
-          <button onClick={checkForUpdates} disabled={checking} className="btn-secondary text-sm flex items-center gap-2">
+          <button onClick={handleCheckForUpdates} disabled={checking} className="btn-secondary text-sm flex items-center gap-2">
             {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCwIcon className="w-4 h-4" />}
             {checking ? 'Checking...' : 'Check Now'}
           </button>
         </div>
-        {updateAvailable && (
+        {updateInfo?.available && (
           <div className="bg-cyan-400/5 border border-cyan-400/20 rounded-xl p-4">
-            <p className="text-cyan-400 font-medium mb-1">Update v{updateVersion} available</p>
-            {updateNotes && <p className="text-xs text-mvo-textDim mb-3 whitespace-pre-line">{updateNotes}</p>}
-            <button onClick={installUpdate} disabled={downloading} className="btn-primary text-sm flex items-center gap-2">
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
-              {downloading ? 'Installing...' : 'Download & Install'}
+            <p className="text-cyan-400 font-medium mb-1">Update v{updateInfo.version} available</p>
+            {updateInfo.notes && <p className="text-xs text-mvo-textDim mb-3 whitespace-pre-line">{updateInfo.notes}</p>}
+            <button onClick={installUpdate} disabled={updateDownloading} className="btn-primary text-sm flex items-center gap-2">
+              {updateDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
+              {updateDownloading ? 'Installing...' : 'Download & Install'}
             </button>
           </div>
         )}

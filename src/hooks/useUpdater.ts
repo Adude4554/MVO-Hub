@@ -26,6 +26,18 @@ export function useUpdater() {
     check();
   }, []);
 
+  const checkForUpdates = async () => {
+    try {
+      const result = await invoke<string>('check_for_updates');
+      const info = JSON.parse(result) as UpdateInfo;
+      if (info.available) {
+        setUpdateInfo(info);
+      }
+    } catch (e) {
+      console.log('Update check failed:', e);
+    }
+  };
+
   const installUpdate = async () => {
     setDownloading(true);
     try {
@@ -38,5 +50,5 @@ export function useUpdater() {
 
   const dismiss = () => setUpdateInfo(null);
 
-  return { updateInfo, downloading, installUpdate, dismiss };
+  return { updateInfo, downloading, installUpdate, dismiss, checkForUpdates };
 }
