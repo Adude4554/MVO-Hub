@@ -16,13 +16,23 @@ export interface AiMessage {
   timestamp: number;
 }
 
+export interface ChatSession {
+  id: string;
+  title: string;
+  model: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function useAI() {
   const [providers, setProviders] = useState<AiProvider[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState('ollama');
+  const [selectedProvider, setSelectedProvider] = useState('openai');
   const [input, setInput] = useState('');
-  const [settings, setSettings] = useState({ provider: 'ollama', model: 'llama3.1', url: 'http://localhost:11434', apiKey: '' });
+  const [settings, setSettings] = useState({ provider: 'openai', model: 'gpt-4o-mini', url: 'https://api.openai.com/v1', apiKey: '' });
 
   const loadProviders = useCallback(async () => {
     try {
@@ -33,38 +43,114 @@ export function useAI() {
     }
   }, []);
 
+  const loadSessions = useCallback(async () => {
+    try {
+      const data = await invoke<ChatSession[]>('chat_get_sessions');
+      setSessions(data);
+    } catch (e) {
+      console.error('Failed to load chat sessions:', e);
+    }
+  }, []);
+
+  const loadMessages = useCallback(async (sessionId: string) => {
+    try {
+      const data = await invoke<any[]>('chat_get_messages', { sessionId });
+      setMessages(data.map(m => ({ role: m.role, content: m.content, timestamp: parseInt(m.createdAt) || Date.now() })));
+    } catch (e) {
+      console.error('Failed to load messages:', e);
+    }
+  }, []);
+
+  const createSession = useCallback(async (title?: string) => {
+    try {
+      const id = await invoke<string>('chat_create_session', { title: title || 'New Chat' });
+      const newSession: ChatSession = { id, title: title || 'New Chat', model: 'gpt-4o-mini', createdAt: String(Date.now()), updatedAt: String(Date.now()) };
+      setSessions(prev => [newSession, ...prev]);
+      setActiveSessionId(id);
+      setMessages([]);
+      return id;
+    } catch (e) {
+      console.error('Failed to create session:', e);
+      return null;
+    }
+  }, []);
+
+  const renameSession = useCallback(async (id: string, title: string) => {
+    try {
+      await invoke('chat_rename_session', { id, title });
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, title } : s));
+    } catch (e) {
+      console.error('Failed to rename session:', e);
+    }
+  }, []);
+
+  const deleteSession = useCallback(async (id: string) => {
+    try {
+      await invoke('chat_delete_session', { id });
+      setSessions(prev => prev.filter(s => s.id !== id));
+      if (activeSessionId === id) {
+        setActiveSessionId(null);
+        setMessages([]);
+      }
+    } catch (e) {
+      console.error('Failed to delete session:', e);
+    }
+  }, [activeSessionId]);
+
   const sendMessage = useCallback(async () => {
     if (!input.trim() || loading) return;
+
+    let sessionId = activeSessionId;
+    if (!sessionId) {
+      const newId = await createSession(input.slice(0, 50));
+      if (!newId) return;
+      sessionId = newId;
+    }
+
     const userMessage = { role: 'user' as const, content: input, timestamp: Date.now() };
     setMessages(prev => [...prev, userMessage]);
     const currentInput = input;
     setInput('');
     setLoading(true);
+
     try {
+      await invoke('chat_add_message', { sessionId, role: 'user', content: currentInput });
+
       const response = await invoke<string>('ask_ai', {
         provider: settings.provider,
-        baseUrl: settings.url || 'http://localhost:11434',
+        baseUrl: settings.url || 'https://api.openai.com/v1',
         apiKey: settings.apiKey || '',
         model: settings.model,
         prompt: currentInput,
         context: '',
       });
+
       setMessages(prev => [...prev, { role: 'assistant', content: response, timestamp: Date.now() }]);
+      await invoke('chat_add_message', { sessionId, role: 'assistant', content: response });
+      await loadSessions();
       return response;
     } catch (e: any) {
       setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message || e}`, timestamp: Date.now() }]);
     } finally {
       setLoading(false);
     }
-  }, [input, loading, settings]);
+  }, [input, loading, settings, activeSessionId, createSession, loadSessions]);
 
   const testConnection = useCallback(async (provider: string, url: string, apiKey: string, model: string) => {
     return invoke('test_ai_api_connection', { provider, baseUrl: url, apiKey, model });
   }, []);
 
-  useEffect(() => {
-    loadProviders();
-  }, [loadProviders]);
+  const selectSession = useCallback(async (id: string) => {
+    setActiveSessionId(id);
+    await loadMessages(id);
+  }, [loadMessages]);
 
-  return { providers, selectedProvider, setSelectedProvider, messages, input, setInput, loading, settings, setSettings, sendMessage, testConnection, loadProviders };
+  useEffect(() => { loadProviders(); loadSessions(); }, [loadProviders, loadSessions]);
+
+  return {
+    providers, sessions, activeSessionId, messages, input, setInput,
+    loading, settings, setSettings, selectedProvider, setSelectedProvider,
+    sendMessage, testConnection, loadProviders, loadSessions,
+    createSession, renameSession, deleteSession, selectSession,
+  };
 }

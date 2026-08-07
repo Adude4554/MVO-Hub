@@ -103,6 +103,23 @@ impl GameVaultDb {
                 last_played TEXT,
                 scanned_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                model TEXT NOT NULL DEFAULT 'gpt-4o-mini',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+            );
         ").map_err(|e| e.to_string())?;
 
         Ok(Self { conn: Arc::new(Mutex::new(conn)) })
@@ -466,6 +483,71 @@ impl GameVaultDb {
             params![seconds, now, id],
         ).map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    // ── Chat Sessions ──
+
+    pub fn create_chat_session(&self, id: &str, title: &str, model: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let now = chrono_now();
+        conn.execute(
+            "INSERT INTO chat_sessions (id, title, model, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![id, title, model, now, now],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn get_chat_sessions(&self) -> Result<Vec<(String, String, String, String, String)>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare(
+            "SELECT id, title, model, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+        }).map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    }
+
+    pub fn update_chat_session_title(&self, id: &str, title: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let now = chrono_now();
+        conn.execute(
+            "UPDATE chat_sessions SET title = ?1, updated_at = ?2 WHERE id = ?3",
+            params![title, now, id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn delete_chat_session(&self, id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM chat_messages WHERE session_id = ?1", params![id]).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM chat_sessions WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn add_chat_message(&self, session_id: &str, role: &str, content: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let now = chrono_now();
+        conn.execute(
+            "INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![session_id, role, content, now],
+        ).map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2",
+            params![now, session_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn get_chat_messages(&self, session_id: &str) -> Result<Vec<(String, String, String, String)>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare(
+            "SELECT session_id, role, content, created_at FROM chat_messages WHERE session_id = ?1 ORDER BY created_at ASC"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![session_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        }).map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
     }
 }
 

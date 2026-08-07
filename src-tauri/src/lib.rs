@@ -2764,6 +2764,65 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     }
 }
 
+// ── Chat Session Commands ──
+
+fn uuid_simple() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis();
+    let rand_val = (secs % 100000) as u32;
+    format!("{:x}-{:04x}", secs, rand_val)
+}
+
+#[tauri::command]
+fn chat_create_session(title: String) -> Result<String, String> {
+    let id = format!("chat-{}", uuid_simple());
+    let db = gv_db()?;
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.create_chat_session(&id, &title, "gpt-4o-mini")?;
+    Ok(id)
+}
+
+#[tauri::command]
+fn chat_get_sessions() -> Result<Vec<serde_json::Value>, String> {
+    let db = gv_db()?;
+    let db = db.lock().map_err(|e| e.to_string())?;
+    let sessions = db.get_chat_sessions()?;
+    Ok(sessions.into_iter().map(|(id, title, model, created_at, updated_at)| {
+        serde_json::json!({ "id": id, "title": title, "model": model, "createdAt": created_at, "updatedAt": updated_at })
+    }).collect())
+}
+
+#[tauri::command]
+fn chat_rename_session(id: String, title: String) -> Result<(), String> {
+    let db = gv_db()?;
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.update_chat_session_title(&id, &title)
+}
+
+#[tauri::command]
+fn chat_delete_session(id: String) -> Result<(), String> {
+    let db = gv_db()?;
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.delete_chat_session(&id)
+}
+
+#[tauri::command]
+fn chat_add_message(session_id: String, role: String, content: String) -> Result<(), String> {
+    let db = gv_db()?;
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.add_chat_message(&session_id, &role, &content)
+}
+
+#[tauri::command]
+fn chat_get_messages(session_id: String) -> Result<Vec<serde_json::Value>, String> {
+    let db = gv_db()?;
+    let db = db.lock().map_err(|e| e.to_string())?;
+    let messages = db.get_chat_messages(&session_id)?;
+    Ok(messages.into_iter().map(|(_, role, content, created_at)| {
+        serde_json::json!({ "role": role, "content": content, "createdAt": created_at })
+    }).collect())
+}
+
 use std::sync::atomic::{AtomicU64};
 
 static DOWNLOAD_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -4562,6 +4621,12 @@ pub fn run() {
             pick_exe_file,
             test_ai_api_connection,
             ask_ai,
+            chat_create_session,
+            chat_get_sessions,
+            chat_rename_session,
+            chat_delete_session,
+            chat_add_message,
+            chat_get_messages,
             load_mvo_settings,
             save_mvo_settings,
             reset_mvo_settings,

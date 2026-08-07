@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.2.5",
-    "notes": "System Tray: minimize to tray, background mode, tray menu.",
-    "pub_date": "2026-08-07T12:00:00Z",
+    "version": "0.2.6",
+    "notes": "AI Assistant: chat sessions, history, gpt-4o-mini, new UI.",
+    "pub_date": "2026-08-07T13:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2RGUmE5RHhUcXdZRVZPMmk1WUpVOTVPMCtRUUphaDVndlZ4UHJYR01ubk1tbHNDVDhQa1VjZkFKdEdrU0d6L2VSWjdsaXd5ZS9ZU2JyZ2R0QkQzVGdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTM1MTk5CWZpbGU6TVZPIEh1Yl8wLjIuNV94NjQtc2V0dXAuZXhlCmtRVlQyRTIxcFpZSVFaTldsM092d3dXTGRUMm1KTDI4dmlxdGhoU0VoaGlWejlIT2twcVRUWXhLb1N0UFZua2RyRzdlTnhjZ01xcE9DVnZQTUtyR0FnPT0K",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.5/MVO.Hub_0.2.5_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2RLaGk1MUFtZzMxR0tpN1Nsd2t5dWxxQlljL2dZclB2UzgyemJ4aFR1Wis4cGU1UlJwUS9aaG8waHRVZS9FT0dRdGE4UWZlaldYdXY1djRoYjJETFE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTM2MDE2CWZpbGU6TVZPIEh1Yl8wLjIuNl94NjQtc2V0dXAuZXhlCkhTNFVVbFV3OWxqMHdNSm9LUllvdTNaTDg1MGhma3BZcnhvbFU1cDgvVDVpQVRjOWthQmxyTTc1SXdXbXVmZW9leFMzbmticFZtWlFuWUZIaEY1WER3PT0K",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.6/MVO.Hub_0.2.6_x64-setup.exe"
         }
     }
 }
