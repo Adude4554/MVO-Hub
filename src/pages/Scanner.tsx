@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { GlassCard } from '../components/ui';
-import { Search, Play, FolderOpen, Loader2, AlertTriangle, Scan, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Play, FolderOpen, Loader2, AlertTriangle, Scan, Check, ChevronDown, ChevronUp, Star, EyeOff, Database, HardDrive } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useLocale } from '../hooks/useLocale';
 import { t } from '../lib/i18n';
@@ -22,6 +22,8 @@ interface ScannedGame {
   isInstalled: boolean;
   coverLocal?: string;
   iconLocal?: string;
+  isFavorite?: boolean;
+  isHidden?: boolean;
 }
 
 interface ScanResult {
@@ -41,6 +43,24 @@ export function Scanner() {
   const [expandedGame, setExpandedGame] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [dataSource, setDataSource] = useState<'db' | 'scan'>('db');
+
+  // Load from DB on mount
+  useEffect(() => {
+    loadFromDB();
+  }, []);
+
+  const loadFromDB = useCallback(async () => {
+    try {
+      const dbGames = await invoke<ScannedGame[]>('load_scanned_games_from_db');
+      if (dbGames && dbGames.length > 0) {
+        setGames(dbGames);
+        setDataSource('db');
+      }
+    } catch (e) {
+      console.log('No cached games in DB');
+    }
+  }, []);
 
   const startScan = useCallback(async () => {
     setScanning(true);
@@ -49,10 +69,35 @@ export function Scanner() {
     try {
       const result = await invoke<ScanResult>('scan_all_platforms');
       setGames(result.games);
+      setDataSource('scan');
+      // Save to DB
+      try {
+        await invoke('save_scanned_games_to_db', { games: result.games });
+      } catch (e) {
+        console.error('Failed to save to DB:', e);
+      }
     } catch (e) {
       setError(String(e));
     }
     setScanning(false);
+  }, []);
+
+  const toggleFavorite = useCallback(async (id: string) => {
+    try {
+      await invoke('toggle_scanned_game_favorite', { id });
+      setGames(prev => prev.map(g => g.id === id ? { ...g, isFavorite: !g.isFavorite } : g));
+    } catch (e) {
+      setToast({ msg: String(e), ok: false });
+    }
+  }, []);
+
+  const toggleHidden = useCallback(async (id: string) => {
+    try {
+      await invoke('toggle_scanned_game_hidden', { id });
+      setGames(prev => prev.map(g => g.id === id ? { ...g, isHidden: !g.isHidden } : g));
+    } catch (e) {
+      setToast({ msg: String(e), ok: false });
+    }
   }, []);
 
   const filteredGames = games
@@ -132,10 +177,13 @@ export function Scanner() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-mvo-text">{t('scanner.title') || 'Universal Game Scanner'}</h1>
-          <p className="text-mvo-textDim mt-1">
+          <p className="text-mvo-textDim mt-1 flex items-center gap-2">
             {games.length > 0
               ? `Found ${games.length} games across ${platforms.length} platforms`
               : 'Scan your PC for all installed games'}
+            <span className={`text-xs px-2 py-0.5 rounded ${dataSource === 'db' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
+              {dataSource === 'db' ? <><Database className="w-3 h-3 inline mr-1" />Cached</> : <><HardDrive className="w-3 h-3 inline mr-1" />Live</>}
+            </span>
           </p>
         </div>
         <button
@@ -322,6 +370,20 @@ export function Scanner() {
                       title="Open Folder"
                     >
                       <FolderOpen className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => toggleFavorite(game.id)}
+                      className={`btn-secondary py-2 px-3 ${game.isFavorite ? 'text-yellow-400' : ''}`}
+                      title="Toggle Favorite"
+                    >
+                      <Star className={`w-4 h-4 ${game.isFavorite ? 'fill-yellow-400' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => toggleHidden(game.id)}
+                      className={`btn-secondary py-2 px-3 ${game.isHidden ? 'text-red-400' : ''}`}
+                      title="Toggle Hidden"
+                    >
+                      <EyeOff className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

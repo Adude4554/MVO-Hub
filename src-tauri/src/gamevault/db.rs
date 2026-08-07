@@ -81,6 +81,28 @@ impl GameVaultDb {
                 file_path TEXT,
                 completed_at TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS scanned_games (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                launcher TEXT NOT NULL,
+                install_path TEXT NOT NULL,
+                exe_path TEXT,
+                app_id TEXT,
+                version TEXT,
+                cover_path TEXT,
+                cover_local TEXT,
+                icon_local TEXT,
+                install_size INTEGER DEFAULT 0,
+                scan_confidence REAL DEFAULT 0.5,
+                is_installed INTEGER DEFAULT 1,
+                is_favorite INTEGER DEFAULT 0,
+                is_hidden INTEGER DEFAULT 0,
+                playtime_seconds INTEGER DEFAULT 0,
+                last_played TEXT,
+                scanned_at TEXT NOT NULL
+            );
         ").map_err(|e| e.to_string())?;
 
         Ok(Self { conn: Arc::new(Mutex::new(conn)) })
@@ -363,6 +385,112 @@ impl GameVaultDb {
             _ => Ok(false),
         }
     }
+
+    // Scanned Games methods
+
+    pub fn save_scanned_games(&self, games: &[ScannedGameRow]) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM scanned_games", []).map_err(|e| e.to_string())?;
+        let now = chrono_now();
+        for game in games {
+            conn.execute(
+                "INSERT INTO scanned_games (id, name, platform, launcher, install_path, exe_path, app_id, version, cover_path, cover_local, icon_local, install_size, scan_confidence, is_installed, is_favorite, is_hidden, playtime_seconds, last_played, scanned_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                params![
+                    game.id, game.name, game.platform, game.launcher, game.install_path,
+                    game.exe_path, game.app_id, game.version, game.cover_path, game.cover_local,
+                    game.icon_local, game.install_size, game.scan_confidence, game.is_installed as i32,
+                    game.is_favorite as i32, game.is_hidden as i32, game.playtime_seconds,
+                    game.last_played, now,
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    pub fn get_scanned_games(&self) -> Result<Vec<ScannedGameRow>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, platform, launcher, install_path, exe_path, app_id, version, cover_path, cover_local, icon_local, install_size, scan_confidence, is_installed, is_favorite, is_hidden, playtime_seconds, last_played, scanned_at FROM scanned_games ORDER BY name"
+        ).map_err(|e| e.to_string())?;
+
+        let games = stmt.query_map([], |row| {
+            Ok(ScannedGameRow {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                platform: row.get(2)?,
+                launcher: row.get(3)?,
+                install_path: row.get(4)?,
+                exe_path: row.get(5)?,
+                app_id: row.get(6)?,
+                version: row.get(7)?,
+                cover_path: row.get(8)?,
+                cover_local: row.get(9)?,
+                icon_local: row.get(10)?,
+                install_size: row.get(11)?,
+                scan_confidence: row.get(12)?,
+                is_installed: row.get::<_, i32>(13)? != 0,
+                is_favorite: row.get::<_, i32>(14)? != 0,
+                is_hidden: row.get::<_, i32>(15)? != 0,
+                playtime_seconds: row.get(16)?,
+                last_played: row.get(17)?,
+                scanned_at: row.get(18)?,
+            })
+        }).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+        Ok(games)
+    }
+
+    pub fn toggle_scanned_game_favorite(&self, id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE scanned_games SET is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END WHERE id = ?1",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn toggle_scanned_game_hidden(&self, id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE scanned_games SET is_hidden = CASE WHEN is_hidden = 1 THEN 0 ELSE 1 END WHERE id = ?1",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn update_scanned_game_playtime(&self, id: &str, seconds: i64) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let now = chrono_now();
+        conn.execute(
+            "UPDATE scanned_games SET playtime_seconds = ?1, last_played = ?2 WHERE id = ?3",
+            params![seconds, now, id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScannedGameRow {
+    pub id: String,
+    pub name: String,
+    pub platform: String,
+    pub launcher: String,
+    pub install_path: String,
+    pub exe_path: Option<String>,
+    pub app_id: Option<String>,
+    pub version: Option<String>,
+    pub cover_path: Option<String>,
+    pub cover_local: Option<String>,
+    pub icon_local: Option<String>,
+    pub install_size: i64,
+    pub scan_confidence: f32,
+    pub is_installed: bool,
+    pub is_favorite: bool,
+    pub is_hidden: bool,
+    pub playtime_seconds: i64,
+    pub last_played: Option<String>,
+    pub scanned_at: String,
 }
 
 fn chrono_now() -> String {

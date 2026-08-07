@@ -3048,6 +3048,16 @@ fn scan_all_platforms() -> Result<serde_json::Value, String> {
     }))
 }
 
+fn chrono_now() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    format!("{}", secs)
+}
+
+fn app_data_dir() -> Option<PathBuf> {
+    dirs::data_local_dir().map(|p| p.join("project-mvo-app"))
+}
+
 #[tauri::command]
 fn clear_artwork_cache() -> Result<String, String> {
     scanner::metadata::clear_artwork_cache()?;
@@ -3057,6 +3067,45 @@ fn clear_artwork_cache() -> Result<String, String> {
 #[tauri::command]
 fn get_artwork_cache_size() -> Result<u64, String> {
     Ok(scanner::metadata::get_cache_size())
+}
+
+#[tauri::command]
+fn save_scanned_games_to_db(games: Vec<gamevault::db::ScannedGameRow>) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
+    db.save_scanned_games(&games).map_err(|e| e.to_string())?;
+    Ok(format!("Saved {} games", games.len()))
+}
+
+#[tauri::command]
+fn load_scanned_games_from_db() -> Result<Vec<gamevault::db::ScannedGameRow>, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
+    db.get_scanned_games().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn toggle_scanned_game_favorite(id: String) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
+    db.toggle_scanned_game_favorite(&id).map_err(|e| e.to_string())?;
+    Ok("Toggled favorite".to_string())
+}
+
+#[tauri::command]
+fn toggle_scanned_game_hidden(id: String) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
+    db.toggle_scanned_game_hidden(&id).map_err(|e| e.to_string())?;
+    Ok("Toggled hidden".to_string())
+}
+
+#[tauri::command]
+fn update_scanned_game_playtime(id: String, seconds: i64) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
+    db.update_scanned_game_playtime(&id, seconds).map_err(|e| e.to_string())?;
+    Ok("Updated playtime".to_string())
 }
 
 const GAME_EXE_BLACKLIST: &[&str] = &[
@@ -4474,6 +4523,11 @@ pub fn run() {
             scan_all_platforms,
             clear_artwork_cache,
             get_artwork_cache_size,
+            save_scanned_games_to_db,
+            load_scanned_games_from_db,
+            toggle_scanned_game_favorite,
+            toggle_scanned_game_hidden,
+            update_scanned_game_playtime,
             get_performance_snapshot,
             get_hardware_history,
             get_system_info,
