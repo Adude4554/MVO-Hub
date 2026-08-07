@@ -1,4 +1,4 @@
-import { XIcon, Cpu, HardDrive, MemoryStick, Wifi, Info as InfoIcon, Gamepad2 as Gamepad2Icon, Monitor as MonitorIcon, Bot as BotIcon } from 'lucide-react';
+import { X as XIcon, Cpu, HardDrive, MemoryStick, Wifi, Info as InfoIcon, Gamepad2 as Gamepad2Icon, Monitor as MonitorIcon, Bot as BotIcon } from 'lucide-react';
 
 interface RightPanelProps {
   isOpen: boolean;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Minimize, Maximize, X, PanelRight, PanelLeft, SettingsIcon, ChevronDown, Square } from 'lucide-react';
+import { Minimize, Maximize, X, PanelRight, PanelLeft, Settings as SettingsIcon, ChevronDown, Square } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { availablePages, PageId } from '../config/pages';
 import { useLocale } from '../hooks/useLocale';

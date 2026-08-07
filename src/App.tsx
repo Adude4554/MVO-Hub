@@ -99,6 +99,11 @@ function App() {
   const system = useSystem();
   const { updateInfo, downloading, progress, error, showModal, checkForUpdates, installUpdate, dismiss, openModal, closeModal } = useUpdater();
 
+  const handlePageChange = useCallback((page: PageId) => {
+    play('pageSwitch');
+    setActivePage(page);
+  }, [play]);
+
   const handleNewChat = useCallback(() => {
     ai.createSession('New Chat');
     handlePageChange('aitools');
@@ -115,11 +120,6 @@ function App() {
   useEffect(() => {
     invoke('start_performance_engine').catch(console.error);
   }, []);
-
-  const handlePageChange = useCallback((page: PageId) => {
-    play('pageSwitch');
-    setActivePage(page);
-  }, [play]);
 
   const PageComponent = useMemo(() => {
 const pageMap: Record<string, React.FC<any>> = {

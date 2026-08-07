@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.2.9",
-    "notes": "Toast notifications, global search (Ctrl+K), keyboard shortcuts. Fixed black screen crash.",
-    "pub_date": "2026-08-07T16:20:00Z",
+    "version": "0.2.10",
+    "notes": "Fixed black screen crash, GameVault store loading, updater shows 'latest version' message.",
+    "pub_date": "2026-08-07T18:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMG5wa3lBc3VObEZ0azdmS2J5bVhVZCttUHpaZXFqWFgzU0pYbDhLQnhJOUVLOGs1a01oUW9xU3JoUDlQTlR4THh0ZUo0aW40OElrWGd0OXlLcHAycHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQwOTY2CWZpbGU6TVZPIEh1Yl8wLjIuOV94NjQtc2V0dXAuZXhlCjNEMC90VDZIcFdCUk1NaW1MVTFYOFlKQ0VTSS92UXZ1aVdpVWZMckdKcnNVeW5SQUFjUHp6TzJKUk9MRWlkVGtsbkdLL1lseHp1eWVkTVhVVlFkMEJnPT0K",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.9/MVO.Hub_0.2.9_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMHNRa3o4U0d5RnJqc2xBU0c5dFlvZlJ6bkYxeFE2UmhQTEltQXJyQXZrNWxRVG53NTA1ejJBMVNkSTJjTGdXYkE4OTJpTkJIVUFnSHJCWTEweTBlbEFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQzNDYxCWZpbGU6TVZPIEh1Yl8wLjIuMTBfeDY0LXNldHVwLmV4ZQpRQit6MzByb3cxWTZsYWhRY1pTYlE5U3JSUDR3a2E2MVQxckdnRHNqdjhvYUpkMGt0bGh5ZkNmOEkxVUg5RGQ3UXFndnI2Nkh1SHpSMlJDZnVXMU9CUT09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.10/MVO.Hub_0.2.10_x64-setup.exe"
         }
     }
 }

@@ -4029,7 +4029,7 @@ fn parse_js_games_array(text: &str) -> Result<Vec<gamevault::StoreItem>, String>
 
 #[tauri::command]
 async fn gv_get_store() -> Result<Vec<gamevault::StoreItem>, String> {
-    let url = "https://adude4554.github.io/GameVault/js/games.js";
+    let url = "https://raw.githubusercontent.com/Adude4554/GameVault/main/js/games.js";
     let resp = reqwest::get(url).await.map_err(|e| format!("Failed to fetch games: {}", e))?;
     let text = resp.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
     parse_js_games_array(&text)
