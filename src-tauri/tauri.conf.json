@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "MVO Hub",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "identifier": "com.projectmvo.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -43,7 +43,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDcxMDkyQTg0RTdFQUU2QzUKUldURjV1cm5oQ29KY1NZWHU0OGlOQWF6M1l6Mytqd1hIa1RsaDdyTHpTWnBqMUJSdEs5aWE3NTAK",
       "endpoints": [
-        "https://github.com/adude4554/MVO-Hub/releases/latest/download/latest.json"
+        "https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/latest.json"
       ],
       "dialog": true
     }

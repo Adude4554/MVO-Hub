@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.1.13",
-    "notes": "Fixed updater: dynamic version display in bottom bar & sidebar, error reporting for update checks, GameVault data source fix.",
-    "pub_date": "2026-08-07T02:00:00Z",
+    "version": "0.1.14",
+    "notes": "Fixed updater endpoint: switched from GitHub releases CDN to raw.githubusercontent.com. Future updates will work automatically.",
+    "pub_date": "2026-08-07T03:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1ZNSlJyNlFoTnBYYjFTWDlMU1ZLSG1DNTJSRTE3N2xHZU9CcnlDV21hYWVELzAyZkQrdk9uVUhka3Nhb0x0TDB1WU1ySE9kM25pNHRsRE9GNGUzaEFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDgwMzYwCWZpbGU6TVZPIEh1Yl8wLjEuMTNfeDY0LXNldHVwLmV4ZQpZM0JpZ3Rpa0svUnFrempsaHJFT1FvS1hNQUVwbUo5WGttQWpwQmNSd3dleVk1QlpZTlVjc3liQkVKa0lPUEkzd3dlUjd0Z2haMHhoRHNqZ0FQdW9CUT09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.13/MVO.Hub_0.1.13_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1dVMDFDaHhTZ2xtV0ErTktOdHM2VGVIa1k4Rm9xV1QvY3ZaY1lkZmdUd2xYUTk1MmhUWHpEdnRCeUp3TE0zZFZWa3hhUXRablNwSmR0MkpLLy9LYUFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDgzMjMxCWZpbGU6TVZPIEh1Yl8wLjEuMTRfeDY0LXNldHVwLmV4ZQpxNDVpdUV5Z3VwekJ1YkkwaE1aMXJaN1NwS2NrOGIwaFFTOEZJdm9XZlo3TkhwTk5xZm9BN252ZnFqT0EyVWJZL2FlODI1TklaRnh1bjQzc2dQSFJEZz09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.14/MVO.Hub_0.1.14_x64-setup.exe"
         }
     }
 }
