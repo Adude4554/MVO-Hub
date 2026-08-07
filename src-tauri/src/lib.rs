@@ -3294,7 +3294,27 @@ fn get_system_info() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 fn get_gpu_info() -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!(null))
+    match get_gpu_info_nvidia() {
+        Ok(json_str) => {
+            let gpu: serde_json::Value = serde_json::from_str(&json_str)
+                .map_err(|e| format!("Failed to parse GPU info JSON: {}", e))?;
+            let name = gpu.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let memory_total_mb = gpu.get("memory_total").and_then(|v| v.as_u64()).unwrap_or(0);
+            let driver = gpu.get("driver_version").and_then(|v| v.as_str()).unwrap_or("");
+            let utilization = gpu.get("utilization").and_then(|v| v.as_u64()).unwrap_or(0);
+            let temperature = gpu.get("temperature").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let power_draw = gpu.get("power_draw").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            Ok(serde_json::json!({
+                "name": name,
+                "memory_total": memory_total_mb * 1_000_000,
+                "driver_version": driver,
+                "usage": utilization as f64,
+                "temperature": temperature,
+                "power": power_draw
+            }))
+        }
+        Err(_) => Ok(serde_json::json!(null)),
+    }
 }
 
 #[tauri::command]

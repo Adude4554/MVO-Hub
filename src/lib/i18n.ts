@@ -49,7 +49,7 @@ const translations: Record<Locale, Record<string, string>> = {
     "library.lastPlayed": "Last Played",
     "vault.title": "Game Vault",
     "vault.store": "Store",
-    "vault.library": "Library",
+    "vault.library": "Vault",
     "vault.downloads": "Downloads",
      "vault.noResults": "No games found.",
      "movies.noResults": "No movies found.",
@@ -1540,3 +1540,4 @@ export function getLocale(): Locale {
 export function t(key: string): string {
   return translations[currentLocale]?.[key] || translations.en[key] || key;
 }
+

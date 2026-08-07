@@ -1,11 +1,11 @@
-{
-  "version": "0.1.3",
-  "notes": "Fixed featured movies & TV shows not playing. Embed URLs now use correct IMDB IDs. Grid uses API-provided URLs directly.",
-  "pub_date": "2026-08-06T07:12:21Z",
+﻿{
+  "version": "0.1.5",
+  "notes": "Fixed black screen when switching to TV Shows in Movies & TV Shows page by correcting embed URL format for TV shows (using path format instead of query param). Also fixed featured items embed URL.",
+  "pub_date": "2026-08-06T20:33:26Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1pkNFJQcTB4SDU0dlljVVlJaUZONVFHVklNMHVtRU11QUZwSlV3Ri9FUlB2Tjc1YkR0VTZIeVUvanBacEI4eFRwN0xTdXdTRjFzWUJJWStrakZBQ3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDAwMzMxCWZpbGU6TVZPIEJldGFfMC4xLjNfeDY0LXNldHVwLmV4ZQp0RmZtdVVxbFBLUkhiVXd4V0xsaWd3MmlYTDVZeHVBTjZTWFN0Z0ZHVlhjNzZKNndySkZoeE9XRmFxREZoRTMxeVYzZSttcTdxWUhnS1UwbXFxeW9Bdz09Cg==",
-      "url": "https://github.com/adude4554/MVO-Hub/releases/download/v0.1.3/MVO.Beta_0.1.3_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1lNY01sVG5iVEtXLytSQXkyaVV5NUdlQ3RUY1pqVTE5dG1KanFIbi95dUNVTW55NGlzVHozL2pCRnFiRnljK0MzSnBCbkhvTlpNL04rM1h6ZVgzaFFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDYyNzg4CWZpbGU6TVZPIEh1Yl8wLjEuNV94NjQtc2V0dXAuZXhlCk5RbXBVK2duamUzNWIvNFFMdDZTY0ZFMnZwcXZSUVRsN1VvQ1NvVitJZUJKVUdVeU43bFNSbTMxWVY1ckt6cmpOUDAyM3lSbU5vUy9nNUoranluYUN3PT0K",
+      "url": "https://github.com/adude4554/MVO-Hub/releases/download/v0.1.5/MVO.Beta_0.1.5_x64-setup.exe"
     }
   }
 }

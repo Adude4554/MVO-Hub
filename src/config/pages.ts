@@ -10,7 +10,7 @@ export const pageGroups = [
   { id: 'main', label: 'MAIN', order: 1 },
   { id: 'media', label: 'MOVIES & TV SHOWS', order: 2 },
   { id: 'gaming', label: 'GAMING', order: 3 },
-  { id: 'tools', label: 'TOOLS', order: 4 },
+  { id: 'tools', label: 'Tools', order: 4 },
   { id: 'system', label: 'SYSTEM', order: 5 },
 ] as const
 
@@ -22,7 +22,7 @@ export const availablePages: PageConfig[] = [
    { id: 'globalchat', label: 'Chat', icon: '💬', group: 'gaming', description: 'Global chat with servers per language' },
    { id: 'files', label: 'Files', icon: '📁', group: 'tools', description: 'Quick folder & system access' },
    { id: 'tools', label: 'Tools', icon: '🛠️', group: 'tools', description: 'External tool detection & launch' },
-   { id: 'optimizer', label: 'Tools', icon: '🔧', group: 'system', description: 'System optimizer & advanced tools' },
+   { id: 'optimizer', label: 'System Optimizer', icon: '🔧', group: 'system', description: 'System optimizer & advanced tools' },
    { id: 'settings', label: 'Settings', icon: '⚙️', group: 'system', description: 'App preferences & profiles' },
    { id: 'overlay', label: 'Overlay', icon: '📈', group: 'tools', description: 'In-game monitoring tools' },
    { id: 'performance', label: 'Performance', icon: '📈', group: 'tools', description: 'CPU, RAM, storage, GPU metrics' },
@@ -38,3 +38,4 @@ export type PageId = typeof availablePages[number]['id']
 export const DEFAULT_HIDDEN_PAGES: string[] = [
   'overlay', 'streaming', 'performance', 'systemboost', 'aitools', 'webhub', 'functiontest', 'updates'
 ]
+

@@ -266,13 +266,27 @@ export function MoviesTV() {
       </div>
 
       {/* Featured */}
-      <FeaturedRow
-        items={tab === 'movies' ? FEATURED_MOVIES : FEATURED_TV}
-        onSelect={(item) => {
-          setSelectedItem({ embed_url: item.embed_url, title: item.title, quality: item.quality, imdb_id: '', tmdb_id: null, embed_url_tmdb: null, time_added: '' });
-          setSelectedEmbed(item.embed_url);
-        }}
-      />
+       <FeaturedRow
+         items={tab === 'movies' ? FEATURED_MOVIES : FEATURED_TV}
+         onSelect={(item) => {
+           let embedUrl = '';
+           if (tab === 'movies') {
+             embedUrl = `https://vidsrcme.ru/embed/movie?imdb=${item.imdbId}`;
+           } else {
+             embedUrl = `https://vidsrcme.ru/embed/tv/${item.tmdbId}`;
+           }
+           setSelectedItem({ 
+             embed_url: embedUrl, 
+             title: item.title, 
+             quality: '', 
+             imdb_id: tab === 'movies' ? item.imdbId : '', 
+             tmdb_id: tab === 'tv' ? item.tmdbId : null, 
+             embed_url_tmdb: null, 
+             time_added: '' 
+           });
+           setSelectedEmbed(embedUrl);
+         }}
+       />
 
       {/* Search */}
       <div className="relative">
@@ -301,15 +315,25 @@ export function MoviesTV() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {filtered.map(item => (
-          <MediaCard
-            key={item.imdb_id}
-            item={item}
-            poster={item.tmdb_id ? posters[item.tmdb_id] : undefined}
-            onClick={() => {
-              setSelectedItem(item);
-              setSelectedEmbed(item.embed_url);
-            }}
-          />
+           <MediaCard
+             key={item.imdb_id}
+             item={item}
+             poster={item.tmdb_id ? posters[item.tmdb_id] : undefined}
+             onClick={() => {
+               let embedUrl = '';
+               if (tab === 'movies') {
+                 embedUrl = `https://vidsrcme.ru/embed/movie?imdb=${item.imdb_id}`;
+               } else {
+                 if (item.tmdb_id) {
+                   embedUrl = `https://vidsrcme.ru/embed/tv/${item.tmdb_id}`;
+                 } else {
+                   embedUrl = item.embed_url;
+                 }
+               }
+               setSelectedItem(item);
+               setSelectedEmbed(embedUrl);
+             }}
+           />
         ))}
       </div>
 
