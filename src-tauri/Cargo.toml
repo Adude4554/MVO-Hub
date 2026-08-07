@@ -1,6 +1,6 @@
 [package]
 name = "project-mvo-app"
-version = "0.2.10"
+version = "0.2.12"
 description = "Project MVO"
 authors = ["Project MVO"]
 edition = "2021"

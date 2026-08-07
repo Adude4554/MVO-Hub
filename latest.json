@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.2.11",
-    "notes": "Fixed updater version mismatch (Cargo.toml was 0.1.0), fixed '0' rendering bug in Settings.",
-    "pub_date": "2026-08-07T18:30:00Z",
+    "version": "0.2.12",
+    "notes": "Fixed updater: all three version sources now match (Cargo.toml, tauri.conf.json, package.json all 0.2.12). Dashboard will no longer show false update available. App restarts after install.",
+    "pub_date": "2026-08-07T19:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMHE1all6WTJqd2RhSlNUNlMraE9VZUlkZmw3cTNpUmoxOXZWbjM2WG5vODZ3UHlCV28rYTV2NGs5M3ZTL0IxeDZzV3JkWlB3ZHlPaEFqMzRtUE9MMHdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQ0Njc2CWZpbGU6TVZPIEh1Yl8wLjIuMTFfeDY0LXNldHVwLmV4ZQozY3BXOGJDc050WXQwWVY2TTJFdjB6VGpKUWFEL1FNQmVPc2VzS3lMNHpvRDRGaW9Hd1NFMWRIZmh5MUZ3cFp1ODJtQ1lHMGZ0aFBIN3Q1VGt1Q2dCQT09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.11/MVO.Hub_0.2.11_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMGduUklodjZNNGExT2hMQUF3a0NYeVhTY2NuMzZDRks0ZE1GeS9yVkdVcDI5VnNUZEUzTzdGaGVoNVRwWDROOHhrellrMHBvTWJIbEdpdzlyS1hhNHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQ1MjQ3CWZpbGU6TVZPIEh1Yl8wLjIuMTJfeDY0LXNldHVwLmV4ZQpXL1ZTajY0VzdpYmV6VkVaU0FQU2MxUXJNS1dsVHVuMHowZ2hEVW1aa1pIWDFxNjlmVFQyQzk4Q3JrWG1RbFR4R3hLU2x6WGtTd0x6V2pnY1dBQVFBQT09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.12/MVO.Hub_0.2.12_x64-setup.exe"
         }
     }
 }
