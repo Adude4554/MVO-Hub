@@ -95,6 +95,10 @@ function App() {
   const system = useSystem();
   const { updateInfo, downloading, installUpdate, dismiss } = useUpdater();
 
+  useEffect(() => {
+    invoke('start_performance_engine').catch(console.error);
+  });
+
   const handlePageChange = useCallback((page: PageId) => {
     play('pageSwitch');
     setActivePage(page);
@@ -171,8 +175,8 @@ const pageMap: Record<string, React.FC<any>> = {
           hiddenPages={settings.settings.hidden_pages || []}
         />
 
-        <main className={`flex-1 ${activePage === 'moviestv' ? 'overflow-hidden' : 'overflow-y-auto'} p-4 md:p-6 lg:p-8 transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
-          <div key={activePage} className={`animate-in ${activePage === 'moviestv' ? 'h-full' : ''}`}>
+        <main className={`flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+          <div key={activePage} className={`animate-in ${activePage === 'moviestv' ? 'h-full overflow-y-auto' : ''}`}>
             <PageComponent
               performance={performance}
               hardware={hardware}

@@ -2,10 +2,10 @@
     "platforms":  {
                       "windows-x86_64":  {
                                              "signature":  {
-                                                               "value":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1hMQkNvUXpaV3orSFgrQzVHOEJpbFVpZkxmUUY5K1hGTW5xbTNWTTErald4QmhKbXZmeTBHcVVxcUdRL0hvTSt5MEN1SndMWkRqbWJsYTl2SEdVb1FjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDY0Mjg2CWZpbGU6TVZPIEh1Yl8wLjEuNl94NjQtc2V0dXAuZXhlCk5KclEweVd5Sk56elJBdEluMmlFc0NOc0lOTEFLL0htRTlFRDFhdTZLRGxBNVRDdkJnWmZZdDUyTktGb0lTU2FnT0lYVWx3V29CMFJoWEkxZkpDNEFnPT0K",
-                                                               "PSPath":  "C:\\Users\\adude\\Documents\\Project-MVO\\project-mvo-beta\\src-tauri\\target\\release\\bundle\\nsis\\MVO.Beta_0.1.6_x64-setup.exe.sig",
+                                                               "value":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2VnVTRnTmNvODRQck9BL21iUEdKUkJwSVpxcFVJYlh0SWdCYWRsWkNFTkhRVDJ4emtUWU02TG45bHQreWoxaklyQkhXQ0dDMTZHTGFQTnYvN0dZdFFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDY2OTM1CWZpbGU6TVZPIEh1Yl8wLjEuN194NjQtc2V0dXAuZXhlCkxsNFh4TE90dWRRRXUvWHVpcTYxVXRBTUl5MmdaTlBpaERSSFBnanhBT25ka0NjQjdPQWd4bk56WmQwRnBuUnpnRlpXUGFtWDNvRTdoYzJ5SFYzR0F3PT0K",
+                                                               "PSPath":  "C:\\Users\\adude\\Documents\\Project-MVO\\project-mvo-beta\\src-tauri\\target\\release\\bundle\\nsis\\MVO.Beta_0.1.7_x64-setup.exe.sig",
                                                                "PSParentPath":  "C:\\Users\\adude\\Documents\\Project-MVO\\project-mvo-beta\\src-tauri\\target\\release\\bundle\\nsis",
-                                                               "PSChildName":  "MVO.Beta_0.1.6_x64-setup.exe.sig",
+                                                               "PSChildName":  "MVO.Beta_0.1.7_x64-setup.exe.sig",
                                                                "PSDrive":  {
                                                                                "CurrentLocation":  "Program Files\\Vault Launcher",
                                                                                "Name":  "C",
@@ -133,10 +133,10 @@
                                                                               },
                                                                "ReadCount":  1
                                                            },
-                                             "url":  "https://github.com/adude4554/MVO-Hub/releases/download/v0.1.6/MVO.Beta_0.1.6_x64-setup.exe"
+                                             "url":  "https://github.com/adude4554/MVO-Hub/releases/download/v0.1.7/MVO.Beta_0.1.7_x64-setup.exe"
                                          }
                   },
-    "pub_date":  "2026-08-06T20:58:46Z",
-    "version":  "0.1.6",
-    "notes":  "Fixed black screen when switching to TV Shows in Movies \u0026 TV Shows page by correcting embed URL format for TV shows (using path format instead of query param). Also fixed version display in Settings and added proper update check with lock screen."
+    "pub_date":  "2026-08-06T21:42:31Z",
+    "version":  "0.1.7",
+    "notes":  "Fixed NVIDIA GPU data retrieval, scrolling in Movies \u0026 TV Shows page, added progress emission for updates, and safety start for performance engine."
 }
