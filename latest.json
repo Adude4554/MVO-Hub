@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.1.9",
-    "notes": "Fixed TV Shows black screen, added episode browser with season/episode selection, episode progress tracking (watched episodes gray out), player only opens after episode selection, restored missing Rust commands from truncated lib.rs, fixed NVIDIA GPU data retrieval.",
-    "pub_date": "2026-08-07T00:30:00Z",
+    "version": "0.1.10",
+    "notes": "update test",
+    "pub_date": "2026-08-07T00:45:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1VKQlh6UmJJN00vM2RFOEhyU3dzeVhodVlDN2htZ3lSRVdZOFhlRVR4V1FQSjV2TXlqRUlvN201S1VPRkhEUXBlWFc4VjFZdWNpcmdBeFZsZ2MyVGdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDc2OTkzCWZpbGU6TVZPIEh1Yl8wLjEuOV94NjQtc2V0dXAuZXhlCnBBakFhZk9oR0FJbmtIdENpUm5lU2JKZlk0aXpWdm5TSSttV01kUXZSdzZIbWZ1TU5rVUhEcVAxT1pVTUJSRFBJQnNWLzZaS1Y4VlEyaEhTRThVT0JBPT0K",
-"url":  "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.9/MVO.Hub_0.1.9_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY2Y5eXp3TFBBZXhhR0MzUm9UN0p5dFk5M3ZnUUg2cTdvem9kVWF5MmNNaDZUWG11RmZCLzlhcmFGdXpyY21uZUE3S2pLZUpYODBoK1A4R2w1ak9hRUF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDc3NjA4CWZpbGU6TVZPIEh1Yl8wLjEuMTBfeDY0LXNldHVwLmV4ZQpXRDFNZ2xyRml5a05VaCtVNUZhaysxNnlyN3VzaS9Bc1F5K20xMWlIS3RyUGRNUXNsaENlaFM5RUw5Ylc5YWZ4b0FSTllKOWV2dGZ1WEQrMFhpdnZDUT09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.10/MVO.Hub_0.1.10_x64-setup.exe"
         }
     }
 }
