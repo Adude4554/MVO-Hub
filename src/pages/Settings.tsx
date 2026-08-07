@@ -97,7 +97,7 @@ function PowerPlanSelector() {
 }
 
 function UpdatesTab() {
-  const { updateInfo, downloading: updateDownloading, installUpdate, checkForUpdates } = useUpdater();
+  const { updateInfo, downloading: updateDownloading, error: updateError, installUpdate, checkForUpdates } = useUpdater();
   const [currentVersion, setCurrentVersion] = useState('');
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState('');
@@ -149,6 +149,15 @@ function UpdatesTab() {
               {updateDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
               {updateDownloading ? 'Installing...' : 'Download & Install'}
             </button>
+          </div>
+        )}
+        {!updateInfo?.available && !checking && !updateError && (
+          <p className="text-xs text-green-400 mt-2">App is up to date</p>
+        )}
+        {updateError && !checking && (
+          <div className="bg-red-400/5 border border-red-400/20 rounded-xl p-3 mt-2">
+            <p className="text-red-400 text-xs font-medium mb-1">Update check error</p>
+            <p className="text-red-300/70 text-xs break-all">{updateError}</p>
           </div>
         )}
       </GlassCard>

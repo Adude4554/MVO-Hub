@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
 import { Cpu, HardDrive, MemoryStick, Wifi, Info as InfoIcon, AlertTriangle as AlertTriangleIcon, CheckCircle as CheckCircleIcon } from 'lucide-react';
 
 interface BottomBarProps {
@@ -7,6 +9,8 @@ interface BottomBarProps {
 }
 
 export function BottomBar({ performance, hardware, windowState }: BottomBarProps) {
+  const [version, setVersion] = useState('...');
+  useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
   const memPercent = performance?.snapshot ? ((performance.snapshot.used_memory / performance.snapshot.total_memory) * 100).toFixed(1) : '0';
   const cpuPercent = performance?.snapshot?.cpu_usage?.toFixed(1) || '0';
   const diskPercent = performance?.snapshot ? ((performance.snapshot.used_storage / performance.snapshot.total_storage) * 100).toFixed(1) : '0';
@@ -41,7 +45,7 @@ export function BottomBar({ performance, hardware, windowState }: BottomBarProps
       </div>
 
       <div className="flex items-center gap-3 text-xs">
-        <span className="text-mvo-textMuted font-mono">v0.1.0-beta</span>
+        <span className="text-mvo-textMuted font-mono">v{version}</span>
         <span className="text-mvo-textDim font-mono">|</span>
         <button className="flex items-center gap-1 text-mvo-textDim hover:text-cyan-400 transition-colors p-1 rounded" title="Diagnostics">
           <InfoIcon className="w-3.5 h-3.5" />

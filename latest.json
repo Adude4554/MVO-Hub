@@ -1,11 +1,11 @@
 ﻿{
-    "version": "0.1.12",
-    "notes": "Fixed GameVault not loading — switched from GitHub Pages (404) to raw GitHub URL.",
-    "pub_date": "2026-08-07T01:15:00Z",
+    "version": "0.1.13",
+    "notes": "Fixed updater: dynamic version display in bottom bar & sidebar, error reporting for update checks, GameVault data source fix.",
+    "pub_date": "2026-08-07T02:00:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1ppSmI2eTZodk9lbEp5Vk0rbDR1cjltdkJVV0JXZUdxNG0zRWYxNGRWRkRKQWNoKzVJd2g4OUc1NXJYdHh6TG1xYW1SdTAyMDlQVUJJR2ZDbkh2M3dBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDc5NjU3CWZpbGU6TVZPIEh1Yl8wLjEuMTJfeDY0LXNldHVwLmV4ZQpwN002WUNKeXRkSWpYZDYwSTg4ZXo4VDVVdHJXTXErSy9YaCtCS1pPTkhSa2hJanpSOEFaVVh1YllOOEI3VWFPaVR6c1RzVURLK3Jqc3R1UzczUDlCUT09Cg==",
-            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.12/MVO.Hub_0.1.12_x64-setup.exe"
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURjV1cm5oQ29KY1ZNSlJyNlFoTnBYYjFTWDlMU1ZLSG1DNTJSRTE3N2xHZU9CcnlDV21hYWVELzAyZkQrdk9uVUhka3Nhb0x0TDB1WU1ySE9kM25pNHRsRE9GNGUzaEFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDgwMzYwCWZpbGU6TVZPIEh1Yl8wLjEuMTNfeDY0LXNldHVwLmV4ZQpZM0JpZ3Rpa0svUnFrempsaHJFT1FvS1hNQUVwbUo5WGttQWpwQmNSd3dleVk1QlpZTlVjc3liQkVKa0lPUEkzd3dlUjd0Z2haMHhoRHNqZ0FQdW9CUT09Cg==",
+            "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.1.13/MVO.Hub_0.1.13_x64-setup.exe"
         }
     }
 }

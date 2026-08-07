@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
 import { Settings as SettingsIcon, Gamepad2, Monitor, Activity, Wrench, Rocket, Bot, FolderOpen, Globe, Wrench as WrenchIcon, FlaskConical, LayoutDashboard, Package, RefreshCw, MessageCircle, Film, Tv } from 'lucide-react';
 import { availablePages, PageId } from '../config/pages';
 import { useLocale } from '../hooks/useLocale';
@@ -13,6 +15,8 @@ interface SidebarProps {
 export function Sidebar({ activePage, onPageChange, collapsed, hiddenPages = [] }: SidebarProps) {
   useLocale();
   const hidden = new Set(hiddenPages);
+  const [version, setVersion] = useState('...');
+  useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
 
   const groups = [
     { id: 'main', label: 'MAIN', pages: availablePages.filter(p => p.group === 'main' && !hidden.has(p.id)) },
@@ -94,7 +98,7 @@ export function Sidebar({ activePage, onPageChange, collapsed, hiddenPages = [] 
         )}
         <div className="flex items-center justify-between text-xs text-mvo-textMuted px-1">
           <span>MVO HUB</span>
-          <span>v0.1.0-beta</span>
+          <span>v{version}</span>
         </div>
       </div>
     </aside>
