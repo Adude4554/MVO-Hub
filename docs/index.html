@@ -182,23 +182,15 @@
       width: 100%; display: block;
       border-radius: 20px;
     }
-    .video-overlay {
-      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.3);
-      opacity: 1; transition: opacity 0.3s;
-      cursor: pointer;
+    .sound-toggle {
+      position: absolute; bottom: 1rem; right: 1rem;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.15);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 10; transition: all 0.2s;
+      backdrop-filter: blur(10px);
     }
-    .video-overlay.hidden { opacity: 0; pointer-events: none; }
-    .play-btn {
-      width: 80px; height: 80px; border-radius: 50%;
-      background: rgba(0,212,255,0.9);
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 40px rgba(0,212,255,0.4);
-      transition: transform 0.3s;
-    }
-    .play-btn:hover { transform: scale(1.1); }
-    .play-btn svg { width: 32px; height: 32px; fill: #fff; margin-left: 4px; }
+    .sound-toggle:hover { background: rgba(0,212,255,0.3); border-color: var(--cyan); }
 
     /* ── FEATURES ── */
     .features {
@@ -416,14 +408,13 @@
   <!-- VIDEO -->
   <section class="video-section reveal" id="video">
     <div class="video-wrapper">
-      <video id="promoVideo" preload="metadata" poster="images/logo.png" playsinline>
+      <video id="promoVideo" autoplay muted loop playsinline>
         <source src="video/promo.mp4" type="video/mp4">
       </video>
-      <div class="video-overlay" id="videoOverlay" onclick="playVideo()">
-        <div class="play-btn">
-          <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </div>
-      </div>
+      <button class="sound-toggle" id="soundToggle" onclick="toggleSound()" title="Toggle Sound">
+        <svg id="soundOn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+        <svg id="soundOff" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </button>
     </div>
   </section>
 
@@ -552,16 +543,75 @@
       document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 50);
     });
 
-    // Video play
-    function playVideo() {
-      const video = document.getElementById('promoVideo');
-      const overlay = document.getElementById('videoOverlay');
-      video.play();
-      overlay.classList.add('hidden');
+    // ── Ambient Cinematic Audio (Web Audio API) ──
+    let audioCtx = null;
+    let ambientGain = null;
+    let soundOn = false;
+
+    function createAmbient() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      ambientGain = audioCtx.createGain();
+      ambientGain.gain.value = 0;
+      ambientGain.connect(audioCtx.destination);
+
+      // Deep space drone
+      const osc1 = audioCtx.createOscillator();
+      osc1.type = 'sine';
+      osc1.frequency.value = 55;
+      const g1 = audioCtx.createGain();
+      g1.gain.value = 0.15;
+      osc1.connect(g1).connect(ambientGain);
+      osc1.start();
+
+      // Mid shimmer
+      const osc2 = audioCtx.createOscillator();
+      osc2.type = 'sine';
+      osc2.frequency.value = 110;
+      const g2 = audioCtx.createGain();
+      g2.gain.value = 0.08;
+      osc2.connect(g2).connect(ambientGain);
+      osc2.start();
+
+      // High ethereal pad
+      const osc3 = audioCtx.createOscillator();
+      osc3.type = 'triangle';
+      osc3.frequency.value = 220;
+      const g3 = audioCtx.createGain();
+      g3.gain.value = 0.04;
+      osc3.connect(g3).connect(ambientGain);
+      osc3.start();
+
+      // Slow LFO modulation on the drone
+      const lfo = audioCtx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.1;
+      const lfoGain = audioCtx.createGain();
+      lfoGain.gain.value = 3;
+      lfo.connect(lfoGain).connect(osc1.frequency);
+      lfo.start();
+
+      // Slow fade-in
+      ambientGain.gain.setTargetAtTime(1, audioCtx.currentTime, 2);
     }
-    document.getElementById('promoVideo').addEventListener('pause', () => {
-      document.getElementById('videoOverlay').classList.remove('hidden');
-    });
+
+    function toggleSound() {
+      const video = document.getElementById('promoVideo');
+      if (!soundOn) {
+        createAmbient();
+        video.muted = false;
+        video.volume = 0.3;
+        document.getElementById('soundOn').style.display = 'block';
+        document.getElementById('soundOff').style.display = 'none';
+        soundOn = true;
+      } else {
+        video.muted = true;
+        if (ambientGain) ambientGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+        document.getElementById('soundOn').style.display = 'none';
+        document.getElementById('soundOff').style.display = 'block';
+        soundOn = false;
+      }
+    }
 
     // Scroll reveal
     const observer = new IntersectionObserver((entries) => {
