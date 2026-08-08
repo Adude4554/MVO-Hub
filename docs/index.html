@@ -48,7 +48,7 @@
     }
     .nav.scrolled { background: rgba(10,15,26,0.98); }
     .nav-brand { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; }
-    .nav-brand img { width: 36px; height: 36px; border-radius: 8px; }
+    .nav-brand img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
     .nav-brand span { font-size: 1.25rem; font-weight: 700; color: #fff; }
     .nav-links { display: flex; gap: 2rem; align-items: center; }
     .nav-links a {
@@ -68,28 +68,44 @@
       box-shadow: 0 4px 20px rgba(0,212,255,0.3);
     }
 
-    /* ── HERO ── */
-    .hero {
-      min-height: 100vh;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      text-align: center; padding: 6rem 2rem 4rem;
-      position: relative; overflow: hidden;
+    /* ── HERO VIDEO SECTION ── */
+    .hero-video {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      min-height: 600px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .hero::before {
-      content: '';
-      position: absolute; top: -50%; left: -50%;
-      width: 200%; height: 200%;
-      background: radial-gradient(ellipse at 50% 30%, rgba(0,212,255,0.08) 0%, transparent 60%),
-                  radial-gradient(ellipse at 30% 70%, rgba(124,58,237,0.06) 0%, transparent 50%);
-      animation: heroGlow 8s ease-in-out infinite alternate;
+    .hero-video video {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
       z-index: 0;
     }
-    @keyframes heroGlow {
-      0% { transform: translate(0, 0) scale(1); }
-      100% { transform: translate(3%, -3%) scale(1.05); }
+    .hero-video::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(10,15,26,0.4) 0%,
+        rgba(10,15,26,0.2) 40%,
+        rgba(10,15,26,0.6) 80%,
+        rgba(10,15,26,1) 100%
+      );
+      z-index: 1;
     }
-    .hero > * { position: relative; z-index: 1; }
+    .hero-video-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 2rem;
+      max-width: 800px;
+    }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 0.5rem;
       padding: 0.4rem 1rem; border-radius: 50px;
@@ -107,21 +123,23 @@
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.5; transform: scale(1.3); }
     }
-    .hero h1 {
+    .hero-video-content h1 {
       font-size: clamp(2.5rem, 6vw, 4.5rem);
       font-weight: 900; color: #fff;
       line-height: 1.1; margin-bottom: 1.5rem;
       animation: fadeInUp 0.8s ease-out 0.2s both;
+      text-shadow: 0 2px 40px rgba(0,0,0,0.6);
     }
-    .hero h1 .gradient {
+    .hero-video-content h1 .gradient {
       background: linear-gradient(135deg, var(--cyan), var(--purple), var(--pink));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
     }
     .hero-sub {
-      font-size: 1.25rem; color: var(--muted);
-      max-width: 600px; margin-bottom: 2.5rem;
+      font-size: 1.25rem; color: rgba(255,255,255,0.8);
+      max-width: 600px; margin: 0 auto 2.5rem;
       animation: fadeInUp 0.8s ease-out 0.4s both;
+      text-shadow: 0 1px 10px rgba(0,0,0,0.5);
     }
     .hero-btns {
       display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
@@ -145,15 +163,46 @@
     }
     .btn-secondary {
       background: rgba(255,255,255,0.05);
-      color: var(--text); border: 1px solid var(--border);
+      color: var(--text); border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
     }
     .btn-secondary:hover {
       background: rgba(255,255,255,0.1);
       transform: translateY(-2px);
     }
     .hero-version {
-      margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted);
+      margin-top: 1.5rem; font-size: 0.8rem; color: rgba(255,255,255,0.5);
       animation: fadeInUp 0.8s ease-out 0.8s both;
+    }
+
+    /* ── SOUND TOGGLE ── */
+    .sound-toggle {
+      position: fixed; bottom: 2rem; right: 2rem;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.15);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 100; transition: all 0.3s;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .sound-toggle:hover {
+      background: rgba(0,212,255,0.3);
+      border-color: var(--cyan);
+      transform: scale(1.1);
+      box-shadow: 0 4px 30px rgba(0,212,255,0.3);
+    }
+    .sound-toggle .ripple {
+      position: absolute;
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      border: 1px solid var(--cyan);
+      opacity: 0;
+      animation: soundRipple 2s ease-out infinite;
+    }
+    .sound-toggle.muted .ripple { animation: none; opacity: 0; }
+    @keyframes soundRipple {
+      0% { transform: scale(1); opacity: 0.4; }
+      100% { transform: scale(2); opacity: 0; }
     }
 
     @keyframes fadeInUp {
@@ -164,33 +213,6 @@
       from { opacity: 0; transform: translateY(-20px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
-    /* ── VIDEO SECTION ── */
-    .video-section {
-      padding: 5rem 2rem;
-      max-width: 1200px; margin: 0 auto;
-    }
-    .video-wrapper {
-      position: relative;
-      border-radius: 20px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(0,212,255,0.05);
-      background: var(--dark-2);
-    }
-    .video-wrapper video {
-      width: 100%; display: block;
-      border-radius: 20px;
-    }
-    .sound-toggle {
-      position: absolute; bottom: 1rem; right: 1rem;
-      width: 44px; height: 44px; border-radius: 50%;
-      background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.15);
-      color: #fff; display: flex; align-items: center; justify-content: center;
-      cursor: pointer; z-index: 10; transition: all 0.2s;
-      backdrop-filter: blur(10px);
-    }
-    .sound-toggle:hover { background: rgba(0,212,255,0.3); border-color: var(--cyan); }
 
     /* ── FEATURES ── */
     .features {
@@ -340,6 +362,10 @@
       .screenshot-grid { grid-template-columns: repeat(2, 1fr); }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .features-grid { grid-template-columns: 1fr; }
+      .hero-video { min-height: 500px; }
+      .hero-video-content h1 { font-size: 2.2rem; }
+      .hero-sub { font-size: 1rem; }
+      .sound-toggle { bottom: 1rem; right: 1rem; width: 44px; height: 44px; }
     }
     @media (max-width: 480px) {
       .screenshot-grid { grid-template-columns: 1fr; }
@@ -364,52 +390,50 @@
       <span>MVO Hub</span>
     </a>
     <div class="nav-links">
-      <a href="#video">Watch Demo</a>
       <a href="#features">Features</a>
       <a href="#screenshots">Screenshots</a>
     </div>
     <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.12/MVO.Hub_0.2.12_x64-setup.exe" class="nav-cta">Download v0.2.12</a>
   </nav>
 
-  <!-- HERO -->
-  <section class="hero">
-    <div class="hero-badge">
-      <span class="dot"></span>
-      <span>v0.2.12 — Now with Ollama AI</span>
+  <!-- HERO VIDEO -->
+  <section class="hero-video" id="hero">
+    <video id="heroVideo" autoplay loop playsinline>
+      <source src="video/promo.mp4" type="video/mp4">
+    </video>
+    <div class="hero-video-content">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        <span>v0.2.12 — Now with Ollama AI</span>
+      </div>
+      <h1>
+        The <span class="gradient">Universal</span><br>
+        Game Discovery Engine
+      </h1>
+      <p class="hero-sub">
+        Discover, launch, and manage all your games from one place.
+        Real-time system monitoring, AI assistant, and streaming — built for gamers.
+      </p>
+      <div class="hero-btns">
+        <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.12/MVO.Hub_0.2.12_x64-setup.exe" class="btn btn-primary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download for Windows
+        </a>
+        <a href="#features" class="btn btn-secondary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Explore Features
+        </a>
+      </div>
+      <p class="hero-version">Free &amp; open source • Windows 10/11 • 58 MB installer</p>
     </div>
-    <h1>
-      The <span class="gradient">Universal</span><br>
-      Game Discovery Engine
-    </h1>
-    <p class="hero-sub">
-      Discover, launch, and manage all your games from one place.
-      Real-time system monitoring, AI assistant, and streaming — built for gamers.
-    </p>
-    <div class="hero-btns">
-      <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.12/MVO.Hub_0.2.12_x64-setup.exe" class="btn btn-primary">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download for Windows
-      </a>
-      <a href="#video" class="btn btn-secondary">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Watch Trailer
-      </a>
-    </div>
-    <p class="hero-version">Free &amp; open source • Windows 10/11 • 58 MB installer</p>
   </section>
 
-  <!-- VIDEO -->
-  <section class="video-section reveal" id="video">
-    <div class="video-wrapper">
-      <video id="promoVideo" autoplay muted loop playsinline>
-        <source src="video/promo.mp4" type="video/mp4">
-      </video>
-      <button class="sound-toggle" id="soundToggle" onclick="toggleSound()" title="Toggle Sound">
-        <svg id="soundOn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
-        <svg id="soundOff" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-      </button>
-    </div>
-  </section>
+  <!-- SOUND TOGGLE (fixed position) -->
+  <button class="sound-toggle muted" id="soundToggle" title="Toggle Sound">
+    <span class="ripple"></span>
+    <svg id="soundOnIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+    <svg id="soundOffIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+  </button>
 
   <!-- FEATURES -->
   <section class="features reveal" id="features">
@@ -536,75 +560,44 @@
       document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 50);
     });
 
-    // ── Ambient Cinematic Audio (Web Audio API) ──
-    let audioCtx = null;
-    let ambientGain = null;
+    // ── Video Sound Control ──
     let soundOn = false;
+    const heroVideo = document.getElementById('heroVideo');
+    const soundToggle = document.getElementById('soundToggle');
+    const soundOnIcon = document.getElementById('soundOnIcon');
+    const soundOffIcon = document.getElementById('soundOffIcon');
 
-    function createAmbient() {
-      if (audioCtx) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      ambientGain = audioCtx.createGain();
-      ambientGain.gain.value = 0;
-      ambientGain.connect(audioCtx.destination);
+    // Video starts muted (autoplay policy)
+    heroVideo.muted = true;
 
-      // Deep space drone
-      const osc1 = audioCtx.createOscillator();
-      osc1.type = 'sine';
-      osc1.frequency.value = 55;
-      const g1 = audioCtx.createGain();
-      g1.gain.value = 0.15;
-      osc1.connect(g1).connect(ambientGain);
-      osc1.start();
-
-      // Mid shimmer
-      const osc2 = audioCtx.createOscillator();
-      osc2.type = 'sine';
-      osc2.frequency.value = 110;
-      const g2 = audioCtx.createGain();
-      g2.gain.value = 0.08;
-      osc2.connect(g2).connect(ambientGain);
-      osc2.start();
-
-      // High ethereal pad
-      const osc3 = audioCtx.createOscillator();
-      osc3.type = 'triangle';
-      osc3.frequency.value = 220;
-      const g3 = audioCtx.createGain();
-      g3.gain.value = 0.04;
-      osc3.connect(g3).connect(ambientGain);
-      osc3.start();
-
-      // Slow LFO modulation on the drone
-      const lfo = audioCtx.createOscillator();
-      lfo.type = 'sine';
-      lfo.frequency.value = 0.1;
-      const lfoGain = audioCtx.createGain();
-      lfoGain.gain.value = 3;
-      lfo.connect(lfoGain).connect(osc1.frequency);
-      lfo.start();
-
-      // Slow fade-in
-      ambientGain.gain.setTargetAtTime(1, audioCtx.currentTime, 2);
-    }
-
-    function toggleSound() {
-      const video = document.getElementById('promoVideo');
-      if (!soundOn) {
-        createAmbient();
-        video.muted = false;
-        video.volume = 0.3;
-        document.getElementById('soundOn').style.display = 'block';
-        document.getElementById('soundOff').style.display = 'none';
-        soundOn = true;
+    soundToggle.addEventListener('click', () => {
+      soundOn = !soundOn;
+      if (soundOn) {
+        heroVideo.muted = false;
+        heroVideo.volume = 0.6;
+        soundOnIcon.style.display = 'block';
+        soundOffIcon.style.display = 'none';
+        soundToggle.classList.remove('muted');
       } else {
-        video.muted = true;
-        if (ambientGain) ambientGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
-        document.getElementById('soundOn').style.display = 'none';
-        document.getElementById('soundOff').style.display = 'block';
-        soundOn = false;
+        heroVideo.muted = true;
+        soundOnIcon.style.display = 'none';
+        soundOffIcon.style.display = 'block';
+        soundToggle.classList.add('muted');
       }
-    }
+    });
+
+    // Auto-enable sound after first user interaction (browser autoplay policy)
+    document.addEventListener('click', function enableSound() {
+      if (!soundOn) {
+        soundOn = true;
+        heroVideo.muted = false;
+        heroVideo.volume = 0.6;
+        soundOnIcon.style.display = 'block';
+        soundOffIcon.style.display = 'none';
+        soundToggle.classList.remove('muted');
+      }
+      document.removeEventListener('click', enableSound);
+    }, { once: true });
 
     // Scroll reveal
     const observer = new IntersectionObserver((entries) => {

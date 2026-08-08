@@ -28,10 +28,23 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       <div className="relative flex flex-col items-center gap-6">
         <div className={`transition-all duration-500 ease-out ${phase === 'logo' || phase === 'text' || phase === 'bar' ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`}>
           <div className="relative">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-400/20 to-purple-500/20 flex items-center justify-center border border-cyan-400/30 backdrop-blur-sm">
-              <span className="text-4xl">🎮</span>
+            <div className="w-24 h-24 rounded-full overflow-hidden border border-cyan-400/30 backdrop-blur-sm bg-gradient-to-br from-cyan-400/10 to-purple-500/10 flex items-center justify-center">
+              <img
+                src="/logo.png"
+                alt="MVO"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback to hexagonal logo if image not found
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const fallback = document.createElement('div');
+                  fallback.className = 'w-full h-full bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center';
+                  fallback.innerHTML = '<span class="text-3xl font-black text-white tracking-tighter" style="font-family: Orbitron, sans-serif;">MVO</span>';
+                  target.parentElement?.appendChild(fallback);
+                }}
+              />
             </div>
-            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-cyan-400/10 to-purple-500/10 blur-md -z-10 animate-pulse" />
+            <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-cyan-400/10 to-purple-500/10 blur-md -z-10 animate-pulse" />
           </div>
         </div>
 
