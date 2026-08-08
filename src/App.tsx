@@ -20,6 +20,7 @@ import { Overlay } from './pages/Overlay';
 import { Streaming } from './pages/Streaming';
 import { Files } from './pages/Files';
 import { WebHub } from './pages/WebHub';
+import { Browser } from './pages/Browser';
 import { Tools } from './pages/Tools';
 import { Settings } from './pages/Settings';
 import { FunctionTest } from './pages/FunctionTest';
@@ -134,6 +135,7 @@ const pageMap: Record<string, React.FC<any>> = {
   streaming: Streaming,
   files: Files,
   webhub: WebHub,
+  browser: Browser,
   tools: Tools,
   settings: Settings,
   functiontest: FunctionTest,
