@@ -2584,16 +2584,36 @@ fn test_ai_api_connection(
         return Err(format!("Gemini API returned HTTP {}: {} | URL: {} | Tip: use Base URL https://generativelanguage.googleapis.com/v1beta and Model gemini-3.5-flash", status, first_chars(&text, 500), url));
     }
 
-    let url = normalize_api_chat_url(&base_url);
-    let body = json!({
-        "model": model.trim(),
-        "messages": [
-            {"role": "system", "content": "You are Project MVO API test."},
-            {"role": "user", "content": "Reply with MVO_OK only."}
-        ],
-        "max_tokens": 12,
-        "temperature": 0
-    });
+    let is_ollama = provider == "ollama" || base_url.contains("11434");
+    let url = if is_ollama {
+        let trimmed = base_url.trim().trim_end_matches('/');
+        if trimmed.ends_with("/api/chat") {
+            trimmed.to_string()
+        } else {
+            format!("{}/api/chat", trimmed)
+        }
+    } else {
+        normalize_api_chat_url(&base_url)
+    };
+    let body = if is_ollama {
+        json!({
+            "model": model.trim(),
+            "messages": [
+                {"role": "user", "content": "Reply with MVO_OK only."}
+            ],
+            "stream": false
+        })
+    } else {
+        json!({
+            "model": model.trim(),
+            "messages": [
+                {"role": "system", "content": "You are Project MVO API test."},
+                {"role": "user", "content": "Reply with MVO_OK only."}
+            ],
+            "max_tokens": 12,
+            "temperature": 0
+        })
+    };
 
     let mut request = client.post(&url).json(&body);
     if let Some(key) = resolved_api_key {
@@ -2640,6 +2660,18 @@ fn ask_ai(
         .build()
         .map_err(|error| format!("Failed to create API client: {}", error))?;
 
+    let is_ollama = provider == "ollama" || base_url.contains("11434");
+    let url = if is_ollama {
+        let trimmed = base_url.trim().trim_end_matches('/');
+        if trimmed.ends_with("/api/chat") {
+            trimmed.to_string()
+        } else {
+            format!("{}/api/chat", trimmed)
+        }
+    } else {
+        normalize_api_chat_url(&base_url)
+    };
+
     let system_prompt = format!(
         "You are Project MVO, a concise PC gaming/streaming optimization assistant. Use the current app context. Provider: {}. Give practical steps only.",
         provider
@@ -2683,16 +2715,26 @@ fn ask_ai(
         return gemini_text_from_response(&text);
     }
 
-    let url = normalize_api_chat_url(&base_url);
-    let body = json!({
-        "model": model.trim(),
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": format!("Context:\n{}\n\nUser request:\n{}", context, prompt)}
-        ],
-        "max_tokens": 700,
-        "temperature": 0.4
-    });
+    let body = if is_ollama {
+        json!({
+            "model": model.trim(),
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": format!("Context:\n{}\n\nUser request:\n{}", context, prompt)}
+            ],
+            "stream": false
+        })
+    } else {
+        json!({
+            "model": model.trim(),
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": format!("Context:\n{}\n\nUser request:\n{}", context, prompt)}
+            ],
+            "max_tokens": 700,
+            "temperature": 0.4
+        })
+    };
 
     let mut request = client.post(&url).json(&body);
     if let Some(key) = resolved_api_key {
@@ -2715,6 +2757,16 @@ fn ask_ai(
     let value: serde_json::Value = serde_json::from_str(&text)
         .map_err(|error| format!("Failed to parse AI response JSON: {}", error))?;
 
+    // Ollama format: { "message": { "content": "..." } }
+    if let Some(content) = value
+        .get("message")
+        .and_then(|message| message.get("content"))
+        .and_then(|content| content.as_str())
+    {
+        return Ok(content.trim().to_string());
+    }
+
+    // OpenAI format: { "choices": [{ "message": { "content": "..." } }] }
     if let Some(content) = value
         .get("choices")
         .and_then(|choices| choices.get(0))
@@ -2722,10 +2774,10 @@ fn ask_ai(
         .and_then(|message| message.get("content"))
         .and_then(|content| content.as_str())
     {
-        Ok(content.trim().to_string())
-    } else {
-        Err(format!("AI response did not contain message content: {}", first_chars(&text, 700)))
+        return Ok(content.trim().to_string());
     }
+
+    Err(format!("AI response did not contain message content: {}", first_chars(&text, 700)))
 }
 
 // ── Cloud Sync Commands ──
@@ -3757,11 +3809,26 @@ fn detect_streaming_tools() -> Result<serde_json::Value, String> {
 #[tauri::command]
 fn get_ai_providers() -> Result<serde_json::Value, String> {
     Ok(serde_json::json!([
-        { "id": "ollama", "name": "Ollama (Local)", "requires_key": false },
-        { "id": "gemini", "name": "Google Gemini", "requires_key": true },
-        { "id": "openai", "name": "OpenAI", "requires_key": true },
-        { "id": "openai-compatible", "name": "OpenAI Compatible", "requires_key": true }
+        { "id": "ollama", "name": "Ollama (Local)", "requires_key": false }
     ]))
+}
+
+#[tauri::command]
+fn get_ollama_models() -> Result<serde_json::Value, String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client.get("http://localhost:11434/api/tags").send();
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            let val: serde_json::Value = r.json().map_err(|e| e.to_string())?;
+            let models = val.get("models").and_then(|m| m.as_array()).cloned().unwrap_or_default();
+            let names: Vec<String> = models.iter().filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(String::from)).collect();
+            Ok(serde_json::json!({ "running": true, "models": names }))
+        }
+        _ => Ok(serde_json::json!({ "running": false, "models": [] }))
+    }
 }
 
 const GAMEVAULT_URL: &str = "https://raw.githubusercontent.com/Adude4554/GameVault/main/js/games.js";
@@ -4890,6 +4957,7 @@ pub fn run() {
             detect_overlay_tools,
             detect_streaming_tools,
             get_ai_providers,
+            get_ollama_models,
             gv_get_store,
             gv_get_library,
             gv_get_downloads,

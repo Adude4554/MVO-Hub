@@ -2,15 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useToast } from '../components/Toast';
 
-export interface AiProvider {
-  id: string;
-  name: string;
-  description: string;
-  requires_api_key: boolean;
-  default_url?: string;
-  default_models: string[];
-}
-
 export interface AiMessage {
   role: string;
   content: string;
@@ -26,24 +17,29 @@ export interface ChatSession {
 }
 
 export function useAI() {
-  const [providers, setProviders] = useState<AiProvider[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState('openai');
   const [input, setInput] = useState('');
-  const [settings, setSettings] = useState({ provider: 'openai', model: 'gpt-4o-mini', url: 'https://api.openai.com/v1', apiKey: '' });
+  const [ollamaRunning, setOllamaRunning] = useState(false);
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState('llama3.1');
   const toast = useToast();
 
-  const loadProviders = useCallback(async () => {
+  const checkOllama = useCallback(async () => {
     try {
-      const data = await invoke<AiProvider[]>('get_ai_providers');
-      setProviders(data);
-    } catch (e) {
-      console.error('AI providers load failed:', e);
+      const result = await invoke<{ running: boolean; models: string[] }>('get_ollama_models');
+      setOllamaRunning(result.running);
+      setOllamaModels(result.models);
+      if (result.models.length > 0 && !result.models.includes(selectedModel)) {
+        setSelectedModel(result.models[0]);
+      }
+    } catch {
+      setOllamaRunning(false);
+      setOllamaModels([]);
     }
-  }, []);
+  }, [selectedModel]);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -66,7 +62,7 @@ export function useAI() {
   const createSession = useCallback(async (title?: string) => {
     try {
       const id = await invoke<string>('chat_create_session', { title: title || 'New Chat' });
-      const newSession: ChatSession = { id, title: title || 'New Chat', model: 'gpt-4o-mini', createdAt: String(Date.now()), updatedAt: String(Date.now()) };
+      const newSession: ChatSession = { id, title: title || 'New Chat', model: selectedModel, createdAt: String(Date.now()), updatedAt: String(Date.now()) };
       setSessions(prev => [newSession, ...prev]);
       setActiveSessionId(id);
       setMessages([]);
@@ -75,7 +71,7 @@ export function useAI() {
       console.error('Failed to create session:', e);
       return null;
     }
-  }, []);
+  }, [selectedModel]);
 
   const renameSession = useCallback(async (id: string, title: string) => {
     try {
@@ -103,6 +99,10 @@ export function useAI() {
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || loading) return;
+    if (!ollamaRunning) {
+      toast.error('Ollama is not running. Start it with: ollama serve');
+      return;
+    }
 
     let sessionId = activeSessionId;
     if (!sessionId) {
@@ -121,10 +121,10 @@ export function useAI() {
       await invoke('chat_add_message', { sessionId, role: 'user', content: currentInput });
 
       const response = await invoke<string>('ask_ai', {
-        provider: settings.provider,
-        baseUrl: settings.url || 'https://api.openai.com/v1',
-        apiKey: settings.apiKey || '',
-        model: settings.model,
+        provider: 'ollama',
+        baseUrl: 'http://localhost:11434',
+        apiKey: '',
+        model: selectedModel,
         prompt: currentInput,
         context: '',
       });
@@ -136,38 +136,39 @@ export function useAI() {
     } catch (e: any) {
       const msg = String(e.message || e);
       let friendly = 'Something went wrong. Please try again.';
-      if (msg.includes('credit_balance_exhausted') || msg.includes('insufficient_quota')) {
-        friendly = 'Your API key has no credits remaining. Please add credits at platform.openai.com/settings/billing or switch to Ollama for free local AI.';
-      } else if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('invalid_api_key')) {
-        friendly = 'Invalid API key. Please check your key in Settings and try again.';
+      if (msg.includes('ECONNREFUSED') || msg.includes('fetch') || msg.includes('Connect')) {
+        friendly = 'Cannot connect to Ollama. Make sure it is running: ollama serve';
+      } else if (msg.includes('model') && msg.includes('not found')) {
+        friendly = `Model "${selectedModel}" not found. Pull it first: ollama pull ${selectedModel}`;
       } else if (msg.includes('429') || msg.includes('Too Many Requests')) {
-        friendly = 'Too many requests. Please wait a moment and try again.';
-      } else if (msg.includes('ECONNREFUSED') || msg.includes('fetch')) {
-        friendly = 'Cannot reach the AI server. Check your Base URL in Settings.';
+        friendly = 'Ollama is busy. Please wait and try again.';
       } else if (msg.length > 200) {
-        friendly = 'Request failed. Check your API key and settings.';
+        friendly = 'Request failed. Check that Ollama is running on localhost:11434.';
       }
       setMessages(prev => [...prev, { role: 'assistant', content: friendly, timestamp: Date.now() }]);
     } finally {
       setLoading(false);
     }
-  }, [input, loading, settings, activeSessionId, createSession, loadSessions]);
-
-  const testConnection = useCallback(async (provider: string, url: string, apiKey: string, model: string) => {
-    return invoke('test_ai_api_connection', { provider, baseUrl: url, apiKey, model });
-  }, []);
+  }, [input, loading, ollamaRunning, selectedModel, activeSessionId, createSession, loadSessions, toast]);
 
   const selectSession = useCallback(async (id: string) => {
     setActiveSessionId(id);
     await loadMessages(id);
   }, [loadMessages]);
 
-  useEffect(() => { loadProviders(); loadSessions(); }, [loadProviders, loadSessions]);
+  useEffect(() => {
+    checkOllama();
+    loadSessions();
+    const interval = setInterval(checkOllama, 10000);
+    return () => clearInterval(interval);
+  }, [checkOllama, loadSessions]);
 
   return {
-    providers, sessions, activeSessionId, messages, input, setInput,
-    loading, settings, setSettings, selectedProvider, setSelectedProvider,
-    sendMessage, testConnection, loadProviders, loadSessions,
+    sessions, activeSessionId, messages, input, setInput,
+    loading, selectedModel, setSelectedModel,
+    ollamaRunning, ollamaModels,
+    sendMessage, loadSessions,
     createSession, renameSession, deleteSession, selectSession,
+    checkOllama,
   };
 }

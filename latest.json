@@ -1,10 +1,10 @@
 ﻿{
     "version": "0.2.12",
-    "notes": "Fixed updater: all three version sources now match (Cargo.toml, tauri.conf.json, package.json all 0.2.12). Dashboard will no longer show false update available. App restarts after install.",
-    "pub_date": "2026-08-07T19:00:00Z",
+    "notes": "Ollama is now the only AI provider - no API keys needed. Auto-detects running Ollama and lists installed models. Fixed Ollama URL (was using OpenAI endpoint). Improved AI error messages.",
+    "pub_date": "2026-08-08T01:15:00Z",
     "platforms": {
         "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMGduUklodjZNNGExT2hMQUF3a0NYeVhTY2NuMzZDRks0ZE1GeS9yVkdVcDI5VnNUZEUzTzdGaGVoNVRwWDROOHhrellrMHBvTWJIbEdpdzlyS1hhNHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTQ1MjQ3CWZpbGU6TVZPIEh1Yl8wLjIuMTJfeDY0LXNldHVwLmV4ZQpXL1ZTajY0VzdpYmV6VkVaU0FQU2MxUXJNS1dsVHVuMHowZ2hEVW1aa1pIWDFxNjlmVFQyQzk4Q3JrWG1RbFR4R3hLU2x6WGtTd0x6V2pnY1dBQVFBQT09Cg==",
+            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWFNScjc5VGVQMHZuUWlEUXo3YUE0SmRqQzR2dHBHNWhqaXlDZnk1UFFicTZMTE9hZEwrVzZRY2w0c3F0azFvMzQ3RlFzdjU1MU85bS9KRncvZGVJUzgyeTJqWGZvOGdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTUxNzk0CWZpbGU6TVZPIEh1Yl8wLjIuMTJfeDY0LXNldHVwLmV4ZQptOWlrdDFyK2U4TFNPbllMTVppQ3NsVlQ3Zk9FRHMzaVltTTRBdFpCNU50eTlIZVNGbHVYUXB0bW5vMjFMTGRQRmU4TCtwd2RVWEt2SHdZeG1sV2RCQT09Cg==",
             "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.12/MVO.Hub_0.2.12_x64-setup.exe"
         }
     }

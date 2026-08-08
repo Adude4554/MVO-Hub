@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/ui';
-import { Send, Loader2, Brain, Plus, MessageSquare, Trash2, Edit3, Check, X, Settings } from 'lucide-react';
+import { Send, Loader2, Brain, Plus, MessageSquare, Trash2, Edit3, Check, X, Settings, Wifi, WifiOff } from 'lucide-react';
 import { useAI } from '../hooks/useAI';
 import { useLocale } from '../hooks/useLocale';
-import { t } from '../lib/i18n';
 
 export function AITools({ ai }: any) {
   useLocale();
   const {
-    providers, sessions, activeSessionId, messages, input, setInput,
-    loading, settings, setSettings, sendMessage, testConnection,
-    createSession, renameSession, deleteSession, selectSession,
+    sessions, activeSessionId, messages, input, setInput,
+    loading, selectedModel, setSelectedModel,
+    ollamaRunning, ollamaModels,
+    sendMessage, createSession, renameSession, deleteSession, selectSession,
+    checkOllama,
   } = useAI();
   const [showSettings, setShowSettings] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -119,36 +120,74 @@ export function AITools({ ai }: any) {
       {/* Main - Chat */}
       <div className="flex-1 flex flex-col glass rounded-xl overflow-hidden">
         {showSettings ? (
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            <h3 className="font-semibold text-lg">AI Provider Settings</h3>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <h3 className="font-semibold text-lg">Ollama Settings</h3>
+
+            {/* Status */}
+            <div className={`flex items-center gap-3 p-4 rounded-xl ${ollamaRunning ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+              {ollamaRunning ? <Wifi className="w-5 h-5 text-green-400" /> : <WifiOff className="w-5 h-5 text-red-400" />}
               <div>
-                <label className="block text-sm text-mvo-textDim mb-2">Provider</label>
-                <select value={settings.provider} onChange={e => setSettings({...settings, provider: e.target.value})} className="w-full input">
-                  {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                <p className={`font-medium text-sm ${ollamaRunning ? 'text-green-400' : 'text-red-400'}`}>
+                  {ollamaRunning ? 'Ollama is running' : 'Ollama is not running'}
+                </p>
+                <p className="text-xs text-mvo-textDim mt-0.5">
+                  {ollamaRunning
+                    ? `Connected to localhost:11434`
+                    : 'Start it with: ollama serve'}
+                </p>
               </div>
-              <div>
-                <label className="block text-sm text-mvo-textDim mb-2">Model</label>
-                <input value={settings.model} onChange={e => setSettings({...settings, model: e.target.value})} className="w-full input" placeholder="gpt-4o-mini" />
-                <p className="text-[10px] text-mvo-textDim mt-1">Free model: gpt-4o-mini</p>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm text-mvo-textDim mb-2">Base URL</label>
-                <input value={settings.url} onChange={e => setSettings({...settings, url: e.target.value})} className="w-full input" placeholder="https://api.openai.com/v1" />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm text-mvo-textDim mb-2">API Key</label>
-                <input type="password" value={settings.apiKey} onChange={e => setSettings({...settings, apiKey: e.target.value})} className="w-full input" placeholder="sk-..." />
-              </div>
+              <button onClick={checkOllama} className="ml-auto text-xs text-mvo-textDim hover:text-mvo-text underline">Refresh</button>
             </div>
-            <button onClick={() => testConnection(settings.provider, settings.url, settings.apiKey, settings.model)} className="btn-primary" disabled={loading}>
-              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2 inline" /> : null}
-              Test Connection
-            </button>
+
+            {/* Model Picker */}
+            <div>
+              <label className="block text-sm text-mvo-textDim mb-2">Model</label>
+              {ollamaModels.length > 0 ? (
+                <select
+                  value={selectedModel}
+                  onChange={e => setSelectedModel(e.target.value)}
+                  className="w-full input"
+                >
+                  {ollamaModels.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              ) : (
+                <div>
+                  <input
+                    value={selectedModel}
+                    onChange={e => setSelectedModel(e.target.value)}
+                    className="w-full input"
+                    placeholder="llama3.1"
+                  />
+                  <p className="text-[10px] text-mvo-textDim mt-1">
+                    {ollamaRunning
+                      ? 'No models found. Pull one first: ollama pull llama3.1'
+                      : 'Start Ollama to see installed models'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Help */}
+            <div className="bg-mvo-panelHover/50 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-medium">Quick Start</p>
+              <ol className="text-xs text-mvo-textDim space-y-1 list-decimal list-inside">
+                <li>Install Ollama from <a href="https://ollama.com" target="_blank" rel="noreferrer" className="text-cyan-400 underline">ollama.com</a></li>
+                <li>Run <code className="bg-black/30 px-1 rounded">ollama serve</code> in a terminal</li>
+                <li>Pull a model: <code className="bg-black/30 px-1 rounded">ollama pull llama3.1</code></li>
+                <li>Select the model above and start chatting</li>
+              </ol>
+            </div>
           </div>
         ) : (
           <>
+            {/* Ollama Status Bar */}
+            {!ollamaRunning && (
+              <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                <WifiOff className="w-3 h-3" />
+                Ollama is not running — start it with <code className="bg-black/30 px-1 rounded">ollama serve</code>
+              </div>
+            )}
+
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 && (
@@ -186,16 +225,16 @@ export function AITools({ ai }: any) {
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  placeholder="Ask MVO AI..."
+                  placeholder={ollamaRunning ? "Ask MVO AI..." : "Start Ollama first..."}
                   className="flex-1 input"
-                  disabled={loading}
+                  disabled={loading || !ollamaRunning}
                 />
-                <button type="submit" disabled={!input.trim() || loading} className="btn-primary px-6">
+                <button type="submit" disabled={!input.trim() || loading || !ollamaRunning} className="btn-primary px-6">
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </button>
               </div>
               <p className="text-[10px] text-mvo-textDim mt-2 text-center">
-                Using {settings.model || 'gpt-4o-mini'} · API key stored locally
+                Using {selectedModel || 'llama3.1'} via Ollama (local)
               </p>
             </form>
           </>
