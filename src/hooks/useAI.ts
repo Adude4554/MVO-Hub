@@ -134,7 +134,20 @@ export function useAI() {
       await loadSessions();
       return response;
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message || e}`, timestamp: Date.now() }]);
+      const msg = String(e.message || e);
+      let friendly = 'Something went wrong. Please try again.';
+      if (msg.includes('credit_balance_exhausted') || msg.includes('insufficient_quota')) {
+        friendly = 'Your API key has no credits remaining. Please add credits at platform.openai.com/settings/billing or switch to Ollama for free local AI.';
+      } else if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('invalid_api_key')) {
+        friendly = 'Invalid API key. Please check your key in Settings and try again.';
+      } else if (msg.includes('429') || msg.includes('Too Many Requests')) {
+        friendly = 'Too many requests. Please wait a moment and try again.';
+      } else if (msg.includes('ECONNREFUSED') || msg.includes('fetch')) {
+        friendly = 'Cannot reach the AI server. Check your Base URL in Settings.';
+      } else if (msg.length > 200) {
+        friendly = 'Request failed. Check your API key and settings.';
+      }
+      setMessages(prev => [...prev, { role: 'assistant', content: friendly, timestamp: Date.now() }]);
     } finally {
       setLoading(false);
     }
