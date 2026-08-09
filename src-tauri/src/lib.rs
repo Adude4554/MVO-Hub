@@ -11,6 +11,8 @@ use futures_util::StreamExt;
 
 mod gamevault;
 mod scanner;
+mod hardware;
+mod updater;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -774,23 +776,21 @@ fn start_performance_engine() -> Result<String, String> {
             let mut gpu_memory_used = "0".to_string();
             let mut gpu_memory_total = "0".to_string();
             let mut gpu_power = "Overlay".to_string();
-            if let Ok(output) = Command::new("nvidia-smi")
-                .args(["--query-gpu=name,memory.total,memory.used,memory.free,temperature.gpu,utilization.gpu,driver_version,power.draw", "--format=csv,noheader,nounits"])
-                .creation_flags(CREATE_NO_WINDOW)
-                .output()
-            {
-                if output.status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                    let parts: Vec<&str> = stdout.trim().split(", ").collect();
-                    if parts.len() >= 8 {
-                        gpu_name = parts[0].trim().to_string();
-                        let memory_total_mb = parts[1].trim().parse::<u64>().unwrap_or(0);
-                        gpu_memory_total = (memory_total_mb * 1_000_000).to_string();
-                        let memory_used_mb = parts[2].trim().parse::<u64>().unwrap_or(0);
-                        gpu_memory_used = (memory_used_mb * 1_000_000).to_string();
-                        gpu_power = format!("{:.0}", parts[7].trim().parse::<f64>().unwrap_or(0.0));
-                        gpu_temp = format!("{:.1}", parts[4].trim().parse::<f64>().unwrap_or(0.0));
-                        gpu_load = parts[5].trim().parse::<u64>().unwrap_or(0).to_string();
+            if let Ok(nvml) = nvml_wrapper::Nvml::init() {
+                if let Ok(device) = nvml.device_by_index(0) {
+                    gpu_name = device.name().unwrap_or_else(|_| "Unknown GPU".to_string());
+                    if let Ok(mem) = device.memory_info() {
+                        gpu_memory_total = (mem.total / 1_000_000).to_string();
+                        gpu_memory_used = (mem.used / 1_000_000).to_string();
+                    }
+                    if let Ok(temp) = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu) {
+                        gpu_temp = format!("{:.1}", temp as f64);
+                    }
+                    if let Ok(util) = device.utilization_rates() {
+                        gpu_load = util.gpu.to_string();
+                    }
+                    if let Ok(power) = device.power_usage() {
+                        gpu_power = format!("{:.0}", power as f64 / 1000.0);
                     }
                 }
             }
@@ -2145,125 +2145,16 @@ fn open_print_management() -> Result<String, String> {
 }
 
 
-// ΓöÇΓöÇ Updater ΓöÇΓöÇ
-
-#[tauri::command]
-async fn check_for_updates() -> Result<String, String> {
-    let url = "https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/latest.json";
-    let resp = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .user_agent(CHROME_USER_AGENT)
-        .build()
-        .map_err(|e| e.to_string())?
-        .get(url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to check updates: {}", e))?;
-    let text = resp.text().await.map_err(|e| format!("Failed to read update response: {}", e))?;
-    let json: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("Failed to parse update JSON: {} — body: {}", e, &text[..200.min(text.len())]))?;
-    let remote_version = json["version"].as_str().unwrap_or("0.0.0");
-    let notes = json["notes"].as_str().unwrap_or("");
-    let pub_date = json["pub_date"].as_str().unwrap_or("");
-    let force = json["force"].as_bool().unwrap_or(false);
-    let download_url = json["platforms"]["windows-x86_64"]["url"].as_str().unwrap_or("");
-    let file_size = json["platforms"]["windows-x86_64"]["file_size"].as_u64().unwrap_or(0);
-    let local_version = env!("CARGO_PKG_VERSION");
-    let available = version_is_newer(local_version, remote_version);
-    Ok(serde_json::json!({
-        "available": available,
-        "version": remote_version,
-        "notes": notes,
-        "pub_date": pub_date,
-        "force": force,
-        "download_url": download_url,
-        "file_size": file_size,
-        "local": local_version,
-    }).to_string())
-}
-
-fn version_is_newer(local: &str, remote: &str) -> bool {
-    let parse = |v: &str| -> Vec<u32> {
-        v.split('.').filter_map(|s| s.parse().ok()).collect()
-    };
-    let l = parse(local);
-    let r = parse(remote);
-    for i in 0..l.len().max(r.len()) {
-        let lv = l.get(i).copied().unwrap_or(0);
-        let rv = r.get(i).copied().unwrap_or(0);
-        if rv > lv { return true; }
-        if rv < lv { return false; }
-    }
-    false
-}
-
-#[tauri::command]
-async fn download_and_install_update(app: tauri::AppHandle) -> Result<String, String> {
-    let url = "https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/latest.json";
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .user_agent(CHROME_USER_AGENT)
-        .build()
-        .map_err(|e| e.to_string())?;
-    let resp = client.get(url).send().await.map_err(|e| format!("Failed to check updates: {}", e))?;
-    let text = resp.text().await.map_err(|e| e.to_string())?;
-    let json: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    let remote_version = json["version"].as_str().unwrap_or("0.0.0");
-    let local_version = env!("CARGO_PKG_VERSION");
-    if !version_is_newer(local_version, remote_version) {
-        return Ok("Already up to date".to_string());
-    }
-    let download_url = json["platforms"]["windows-x86_64"]["url"].as_str()
-        .ok_or("No download URL found for windows-x86_64")?;
-    let install_dir = dirs::download_dir().unwrap_or_else(|| std::path::PathBuf::from(".")).join("MVO_Hub_Update");
-    std::fs::create_dir_all(&install_dir).map_err(|e| e.to_string())?;
-    let exe_path = install_dir.join(format!("MVO_Hub_{}_setup.exe", remote_version));
-    let _ = app.emit("update-progress", serde_json::json!({"status": "downloading", "percent": 0}));
-    let resp = client.get(download_url).send().await.map_err(|e| format!("Download failed: {}", e))?;
-    let total = resp.content_length().unwrap_or(0);
-    let mut downloaded: u64 = 0;
-    let mut stream = resp.bytes_stream();
-    use futures_util::StreamExt;
-    let mut file = std::fs::File::create(&exe_path).map_err(|e| e.to_string())?;
-    let mut last_emit = std::time::Instant::now();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| format!("Download stream error: {}", e))?;
-        std::io::Write::write_all(&mut file, &chunk).map_err(|e| e.to_string())?;
-        downloaded += chunk.len() as u64;
-        if last_emit.elapsed() >= std::time::Duration::from_millis(500) || downloaded == total {
-            let pct = if total > 0 { (downloaded as f64 / total as f64 * 100.0) as u32 } else { 0 };
-            let _ = app.emit("update-progress", serde_json::json!({
-                "status": "downloading",
-                "downloaded": downloaded,
-                "total": total,
-                "percent": pct,
-            }));
-            last_emit = std::time::Instant::now();
-        }
-    }
-    drop(file);
-    let _ = app.emit("update-progress", serde_json::json!({"status": "installing", "percent": 100}));
-    let output = std::process::Command::new(&exe_path)
-        .arg("/S")
-        .output()
-        .map_err(|e| format!("Failed to start installer: {}", e))?;
-    let exit_code = output.status.code().unwrap_or(-1);
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Installer failed (exit code {}): {}", exit_code, stderr));
-    }
-    app.restart();
-    #[allow(unreachable_code)]
-    Ok("Updated".to_string())
-}
-
 // ΓöÇΓöÇ User Accounts ΓöÇΓöÇ
 
 #[tauri::command]
 fn create_account(username: String, email: String, password: String) -> Result<String, String> {
-    use sha2::{Sha256, Digest};
-    let mut hasher = Sha256::new();
-    hasher.update(password.as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
+    use argon2::password_hash::{SaltString, PasswordHasher};
+    use argon2::Argon2;
+    let salt = SaltString::generate(&mut rand::thread_rng());
+    let hash = Argon2::default().hash_password(password.as_bytes(), &salt)
+        .map_err(|e| format!("Hash error: {}", e))?
+        .to_string();
     let db = gv_db()?;
     let db = db.lock().map_err(|e| e.to_string())?;
     let id = db.create_user(&username, &email, &hash)?;
@@ -2272,15 +2163,15 @@ fn create_account(username: String, email: String, password: String) -> Result<S
 
 #[tauri::command]
 fn login(email: String, password: String) -> Result<String, String> {
-    use sha2::{Sha256, Digest};
-    let mut hasher = Sha256::new();
-    hasher.update(password.as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
+    use argon2::password_hash::{PasswordHash, PasswordVerifier};
+    use argon2::Argon2;
     let db = gv_db()?;
     let db = db.lock().map_err(|e| e.to_string())?;
     match db.get_user_by_email(&email)? {
         Some((id, username, stored_email, stored_hash, _)) => {
-            if stored_hash == hash {
+            let parsed = PasswordHash::new(&stored_hash)
+                .map_err(|e| format!("Invalid stored hash: {}", e))?;
+            if Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok() {
                 Ok(serde_json::json!({"id": id, "username": username, "email": stored_email}).to_string())
             } else {
                 Err("Invalid password".to_string())
@@ -2361,18 +2252,17 @@ fn launch_game_by_path(exe_path: String, install_path: Option<String>) -> Result
 
 #[tauri::command]
 fn change_password(user_id: i64, old_password: String, new_password: String) -> Result<String, String> {
-    use sha2::{Sha256, Digest};
-    let mut h = Sha256::new();
-    h.update(old_password.as_bytes());
-    let old_hash = format!("{:x}", h.finalize());
+    use argon2::password_hash::{SaltString, PasswordHasher};
+    use argon2::Argon2;
     let db = gv_db()?;
     let db = db.lock().map_err(|e| e.to_string())?;
-    if !db.verify_password(user_id, &old_hash)? {
+    if !db.verify_password(user_id, &old_password)? {
         return Err("Old password is incorrect".to_string());
     }
-    let mut h2 = Sha256::new();
-    h2.update(new_password.as_bytes());
-    let new_hash = format!("{:x}", h2.finalize());
+    let salt = SaltString::generate(&mut rand::thread_rng());
+    let new_hash = Argon2::default().hash_password(new_password.as_bytes(), &salt)
+        .map_err(|e| format!("Hash error: {}", e))?
+        .to_string();
     db.change_password(user_id, &new_hash)?;
     Ok("Password changed".to_string())
 }
@@ -2400,29 +2290,31 @@ fn save_avatar(user_id: i64, avatar_data: String) -> Result<String, String> {
 
 #[tauri::command]
 fn get_gpu_info_nvidia() -> Result<String, String> {
-    let output = Command::new("nvidia-smi")
-        .args(["--query-gpu=name,memory.total,memory.used,memory.free,temperature.gpu,utilization.gpu,driver_version,power.draw", "--format=csv,noheader,nounits"])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| format!("nvidia-smi not found: {}", e))?;
-    if !output.status.success() {
-        return Err("nvidia-smi failed".to_string());
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let parts: Vec<&str> = stdout.trim().split(", ").collect();
-    if parts.len() >= 8 {
-        Ok(serde_json::json!({
-            "name": parts[0].trim(),
-            "memory_total": parts[1].trim().parse::<u64>().unwrap_or(0),
-            "memory_used": parts[2].trim().parse::<u64>().unwrap_or(0),
-            "memory_free": parts[3].trim().parse::<u64>().unwrap_or(0),
-            "temperature": parts[4].trim().parse::<f64>().unwrap_or(0.0),
-            "utilization": parts[5].trim().parse::<u64>().unwrap_or(0),
-            "driver_version": parts[6].trim(),
-            "power_draw": parts[7].trim().parse::<f64>().unwrap_or(0.0),
-        }).to_string())
-    } else {
-        Err("Failed to parse GPU info".to_string())
+    match nvml_wrapper::Nvml::init() {
+        Ok(nvml) => {
+            match nvml.device_by_index(0) {
+                Ok(device) => {
+                    let name = device.name().unwrap_or_else(|_| "Unknown GPU".to_string());
+                    let mem = device.memory_info().map(|m| (m.total, m.used, m.free)).unwrap_or((0, 0, 0));
+                    let temp = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu).unwrap_or(0) as f64;
+                    let util = device.utilization_rates().map(|u| u.gpu as u64).unwrap_or(0);
+                    let power = device.power_usage().unwrap_or(0) as f64 / 1000.0;
+                    let driver = nvml.sys_driver_version().unwrap_or_default();
+                    Ok(serde_json::json!({
+                        "name": name,
+                        "memory_total": mem.0 / 1_000_000,
+                        "memory_used": mem.1 / 1_000_000,
+                        "memory_free": mem.2 / 1_000_000,
+                        "temperature": temp,
+                        "utilization": util,
+                        "driver_version": driver,
+                        "power_draw": power,
+                    }).to_string())
+                }
+                Err(_) => Err("No NVIDIA GPU found".to_string()),
+            }
+        }
+        Err(_) => Err("NVML not available".to_string()),
     }
 }
 
@@ -2782,8 +2674,73 @@ fn ask_ai(
 
 // ── Cloud Sync Commands ──
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStatus {
+    pub last_sync_time: Option<String>,
+    pub pending_changes: bool,
+    pub error_state: Option<String>,
+    pub is_syncing: bool,
+}
+
+impl Default for SyncStatus {
+    fn default() -> Self {
+        Self {
+            last_sync_time: None,
+            pending_changes: false,
+            error_state: None,
+            is_syncing: false,
+        }
+    }
+}
+
+static SYNC_STATUS: OnceLock<Arc<Mutex<SyncStatus>>> = OnceLock::new();
+
+fn sync_status_ref() -> Arc<Mutex<SyncStatus>> {
+    SYNC_STATUS
+        .get_or_init(|| Arc::new(Mutex::new(SyncStatus::default())))
+        .clone()
+}
+
+#[tauri::command]
+fn sync_get_status() -> Result<String, String> {
+    let status = sync_status_ref()
+        .lock()
+        .map_err(|_| "Failed to lock sync status".to_string())?
+        .clone();
+    serde_json::to_string(&status).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn sync_export_to_gist(github_token: String) -> Result<String, String> {
+    let status_ref = sync_status_ref();
+    {
+        let mut status = status_ref.lock().map_err(|e| e.to_string())?;
+        status.is_syncing = true;
+        status.error_state = None;
+    }
+
+    let result = sync_export_to_gist_inner(&github_token);
+
+    {
+        let mut status = status_ref.lock().map_err(|e| e.to_string())?;
+        status.is_syncing = false;
+        match &result {
+            Ok(_) => {
+                status.last_sync_time = Some(chrono_now());
+                status.pending_changes = false;
+                status.error_state = None;
+            }
+            Err(e) => {
+                status.error_state = Some(e.clone());
+            }
+        }
+    }
+
+    result
+}
+
+fn sync_export_to_gist_inner(github_token: &str) -> Result<String, String> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
@@ -2880,7 +2837,35 @@ fn sync_export_to_gist(github_token: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn sync_import_from_gist(github_token: String) -> Result<String, String> {
+fn sync_import_from_gist(app: tauri::AppHandle, github_token: String) -> Result<String, String> {
+    let status_ref = sync_status_ref();
+    {
+        let mut status = status_ref.lock().map_err(|e| e.to_string())?;
+        status.is_syncing = true;
+        status.error_state = None;
+    }
+
+    let result = sync_import_from_gist_inner(&app, &github_token);
+
+    {
+        let mut status = status_ref.lock().map_err(|e| e.to_string())?;
+        status.is_syncing = false;
+        match &result {
+            Ok(_) => {
+                status.last_sync_time = Some(chrono_now());
+                status.pending_changes = false;
+                status.error_state = None;
+            }
+            Err(e) => {
+                status.error_state = Some(e.clone());
+            }
+        }
+    }
+
+    result
+}
+
+fn sync_import_from_gist_inner(app: &tauri::AppHandle, github_token: &str) -> Result<String, String> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
@@ -2917,7 +2902,79 @@ fn sync_import_from_gist(github_token: String) -> Result<String, String> {
     let sync_data: serde_json::Value = serde_json::from_str(file_content)
         .map_err(|e| format!("Failed to parse sync data: {}", e))?;
 
-    // Restore settings
+    // Conflict detection: compare local settings with remote
+    let mut conflicts: Vec<serde_json::Value> = Vec::new();
+
+    if let Some(remote_settings) = sync_data.get("settings") {
+        let app_data = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+        let settings_path = app_data.join("project-mvo-app").join("mvo-settings.json");
+        if settings_path.exists() {
+            if let Ok(local_content) = fs::read_to_string(&settings_path) {
+                if let Ok(local_settings) = serde_json::from_str::<serde_json::Value>(&local_content) {
+                    // Compare key fields
+                    for key in &["theme_mode", "api_provider", "api_model", "api_key"] {
+                        let local_val = local_settings.get(*key);
+                        let remote_val = remote_settings.get(*key);
+                        if local_val != remote_val {
+                            conflicts.push(serde_json::json!({
+                                "type": "settings",
+                                "field": key,
+                                "local": local_val,
+                                "remote": remote_val,
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Check for chat session conflicts
+    if let Some(remote_chat_data) = sync_data.get("chat_data") {
+        if let Some(remote_sessions) = remote_chat_data.as_array() {
+            let db = gv_db()?;
+            let db = db.lock().map_err(|e| e.to_string())?;
+            if let Ok(local_sessions) = db.get_chat_sessions() {
+                let local_ids: std::collections::HashSet<String> = local_sessions
+                    .iter()
+                    .map(|(id, _, _, _, _)| id.clone())
+                    .collect();
+                for remote_session in remote_sessions {
+                    if let Some(s) = remote_session.get("session") {
+                        let remote_id = s["id"].as_str().unwrap_or("");
+                        if local_ids.contains(remote_id) {
+                            // Session exists both locally and remotely - check message count
+                            let remote_msg_count = remote_session
+                                .get("messages")
+                                .and_then(|m| m.as_array())
+                                .map(|a| a.len())
+                                .unwrap_or(0);
+                            if let Ok(local_msgs) = db.get_chat_messages(remote_id) {
+                                if local_msgs.len() != remote_msg_count {
+                                    conflicts.push(serde_json::json!({
+                                        "type": "chat_session",
+                                        "sessionId": remote_id,
+                                        "localMessages": local_msgs.len(),
+                                        "remoteMessages": remote_msg_count,
+                                    }));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Emit conflict event if any conflicts found
+    if !conflicts.is_empty() {
+        let _ = app.emit("sync-conflict-detected", serde_json::json!({
+            "conflicts": conflicts,
+            "importTime": chrono_now(),
+        }));
+    }
+
+    // Restore settings (remote overwrites local)
     if let Some(settings) = sync_data.get("settings") {
         let app_data = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
         let settings_path = app_data.join("project-mvo-app").join("mvo-settings.json");
@@ -3155,17 +3212,18 @@ fn load_settings() -> Result<serde_json::Value, String> {
                 }
             }
              // Ensure all frontend fields exist
-             let obj = val.as_object_mut().unwrap();
-             if !obj.contains_key("hidden_pages") { obj.insert("hidden_pages".to_string(), serde_json::json!([])); }
-             if !obj.contains_key("dashboard_widgets") { obj.insert("dashboard_widgets".to_string(), serde_json::json!([])); }
-             if !obj.contains_key("language") { obj.insert("language".to_string(), serde_json::json!("en")); }
-             if !obj.contains_key("notifications_enabled") { obj.insert("notifications_enabled".to_string(), serde_json::json!(true)); }
-             if !obj.contains_key("auto_update") { obj.insert("auto_update".to_string(), serde_json::json!(true)); }
-             if !obj.contains_key("sidebar_collapsed") { obj.insert("sidebar_collapsed".to_string(), serde_json::json!(false)); }
-             if !obj.contains_key("right_panel_open") { obj.insert("right_panel_open".to_string(), serde_json::json!(true)); }
-             if !obj.contains_key("window_width") { obj.insert("window_width".to_string(), serde_json::json!(1500)); }
-             if !obj.contains_key("window_height") { obj.insert("window_height".to_string(), serde_json::json!(900)); }
-             return Ok(val);
+             if let Some(obj) = val.as_object_mut() {
+                 if !obj.contains_key("hidden_pages") { obj.insert("hidden_pages".to_string(), serde_json::json!([])); }
+                 if !obj.contains_key("dashboard_widgets") { obj.insert("dashboard_widgets".to_string(), serde_json::json!([])); }
+                 if !obj.contains_key("language") { obj.insert("language".to_string(), serde_json::json!("en")); }
+                 if !obj.contains_key("notifications_enabled") { obj.insert("notifications_enabled".to_string(), serde_json::json!(true)); }
+                 if !obj.contains_key("auto_update") { obj.insert("auto_update".to_string(), serde_json::json!(true)); }
+                 if !obj.contains_key("sidebar_collapsed") { obj.insert("sidebar_collapsed".to_string(), serde_json::json!(false)); }
+                 if !obj.contains_key("right_panel_open") { obj.insert("right_panel_open".to_string(), serde_json::json!(true)); }
+                 if !obj.contains_key("window_width") { obj.insert("window_width".to_string(), serde_json::json!(1500)); }
+                 if !obj.contains_key("window_height") { obj.insert("window_height".to_string(), serde_json::json!(900)); }
+                 return Ok(val);
+             }
         }
     }
 
@@ -3216,8 +3274,12 @@ fn export_settings() -> Result<String, String> {
 }
 
 #[tauri::command]
-fn import_settings(_json: String) -> Result<String, String> {
-    Ok("Settings imported".to_string())
+fn import_settings(json: String) -> Result<String, String> {
+    let _settings: serde_json::Value = serde_json::from_str(&json)
+        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let settings_path = settings_file_path()?;
+    std::fs::write(&settings_path, &json).map_err(|e| format!("Failed to write settings: {}", e))?;
+    Ok("Settings imported successfully".to_string())
 }
 
 #[tauri::command]
@@ -3227,11 +3289,18 @@ fn open_settings_folder() -> Result<String, String> {
 
 #[tauri::command]
 fn check_first_run() -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({ "is_first_run": false }))
+    let settings_path = settings_file_path()?;
+    let is_first = !settings_path.exists();
+    Ok(serde_json::json!({ "is_first_run": is_first }))
 }
 
 #[tauri::command]
 fn complete_first_run() -> Result<String, String> {
+    let mut settings = load_mvo_settings()?;
+    settings.theme_mode = "dark".to_string();
+    let settings_path = settings_file_path()?;
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(&settings_path, json).map_err(|e| format!("Failed to save settings: {}", e))?;
     Ok("First run complete".to_string())
 }
 
@@ -3410,6 +3479,361 @@ fn update_scanned_game_playtime(id: String, seconds: i64) -> Result<String, Stri
     let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
     db.update_scanned_game_playtime(&id, seconds).map_err(|e| e.to_string())?;
     Ok("Updated playtime".to_string())
+}
+
+// ── Scanner V2 Commands ──
+
+static SCAN_CANCELLED: AtomicBool = AtomicBool::new(false);
+
+#[tauri::command]
+fn scanner_v2_scan(scan_type: String, paths: Vec<String>) -> Result<serde_json::Value, String> {
+    use crate::scanner::scan_job::{ScanJob, ScanJobConfig, ScanType};
+    use crate::scanner::ignore::IgnoreList;
+    use std::sync::{Arc, Mutex};
+
+    let st = match scan_type.as_str() {
+        "quick" => ScanType::Quick,
+        "full" => ScanType::Full,
+        "custom" => ScanType::Custom,
+        _ => ScanType::Quick,
+    };
+
+    SCAN_CANCELLED.store(false, Ordering::Relaxed);
+
+    let config = ScanJobConfig {
+        scan_type: st,
+        paths,
+        incremental: false,
+        cancel_token: Arc::new(Mutex::new(false)),
+    };
+
+    let ignore_list = Arc::new(IgnoreList::new());
+    let app_data = app_data_dir();
+
+    let job = ScanJob::new(config, ignore_list);
+    let result = job.run(app_data);
+
+    let games_json: Vec<serde_json::Value> = result.games.iter().map(|g| {
+        serde_json::json!({
+            "id": g.id,
+            "name": g.name,
+            "platform": g.platform,
+            "launcher": g.launcher,
+            "installPath": g.install_path,
+            "exePath": g.exe_path,
+            "appId": g.app_id,
+            "version": g.version,
+            "iconPath": g.icon_path,
+            "coverPath": g.cover_path,
+            "bannerPath": g.banner_path,
+            "installSize": g.install_size,
+            "scanConfidence": g.scan_confidence,
+            "isInstalled": g.is_installed,
+        })
+    }).collect();
+
+    Ok(serde_json::json!({
+        "games": games_json,
+        "total": result.games.len(),
+        "duplicates": result.duplicates.len(),
+        "directoriesScanned": result.total_directories_scanned,
+        "candidatesFound": result.total_candidates,
+        "errors": result.total_errors,
+        "durationMs": result.duration_ms,
+        "scanType": result.scan_type,
+    }))
+}
+
+#[tauri::command]
+fn scanner_v2_cancel_scan() -> Result<String, String> {
+    SCAN_CANCELLED.store(true, Ordering::Relaxed);
+    Ok("Scan cancelled".to_string())
+}
+
+#[tauri::command]
+fn scanner_v2_get_ignore_rules() -> Result<serde_json::Value, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db_path = app_data.join("gamevault.db");
+    let ignore_list = crate::scanner::ignore::IgnoreList::load_from_db(&db_path);
+    let rules = ignore_list.get_rules();
+    Ok(serde_json::json!({ "rules": rules }))
+}
+
+#[tauri::command]
+fn scanner_v2_add_ignore_rule(rule_type: String, pattern: String) -> Result<String, String> {
+    use crate::scanner::ignore::IgnoreRuleType;
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db_path = app_data.join("gamevault.db");
+    let ignore_list = crate::scanner::ignore::IgnoreList::load_from_db(&db_path);
+    let rt = match rule_type.as_str() {
+        "executable" => IgnoreRuleType::Executable,
+        "directory" => IgnoreRuleType::Directory,
+        "path" => IgnoreRuleType::Path,
+        "scan_root" => IgnoreRuleType::ScanRoot,
+        _ => IgnoreRuleType::Directory,
+    };
+    ignore_list.add_rule(rt, &pattern);
+    Ok(format!("Added ignore rule: {}", pattern))
+}
+
+#[tauri::command]
+fn scanner_v2_remove_ignore_rule(id: String) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db_path = app_data.join("gamevault.db");
+    let ignore_list = crate::scanner::ignore::IgnoreList::load_from_db(&db_path);
+    ignore_list.remove_rule(&id);
+    Ok("Removed ignore rule".to_string())
+}
+
+#[tauri::command]
+fn scanner_v2_manual_add_game(name: String, install_path: String, exe_path: Option<String>) -> Result<serde_json::Value, String> {
+    use crate::scanner::confidence::{ConfidenceReason, ConfidenceScore};
+
+    let install_path_buf = std::path::PathBuf::from(&install_path);
+    if !install_path_buf.exists() {
+        return Err("Install path does not exist".to_string());
+    }
+
+    let exe = exe_path.or_else(|| {
+        crate::scanner::executable::find_executables_in_dir(&install_path_buf, 2)
+            .into_iter()
+            .find(|c| crate::scanner::executable::classify_executable(&c.path) == crate::scanner::executable::ExeClassification::PossibleGame)
+            .map(|c| c.path.to_string_lossy().to_string())
+    });
+
+    let mut confidence = ConfidenceScore::new();
+    confidence.add(ConfidenceReason::ManualEntry);
+
+    let game = crate::scanner::ScannedGame {
+        id: format!("manual:{}", install_path.to_lowercase().replace('\\', "/").replace(' ', "-")),
+        name,
+        platform: "Manual".to_string(),
+        launcher: "Manual".to_string(),
+        install_path,
+        exe_path: exe,
+        app_id: None,
+        version: None,
+        icon_path: None,
+        cover_path: None,
+        banner_path: None,
+        install_size: Some(crate::scanner::calculate_folder_size(&install_path_buf)),
+        scan_confidence: (confidence.score / 100.0).min(1.0),
+        is_installed: true,
+    };
+
+    Ok(serde_json::json!({
+        "id": game.id,
+        "name": game.name,
+        "platform": game.platform,
+        "launcher": game.launcher,
+        "installPath": game.install_path,
+        "exePath": game.exe_path,
+        "scanConfidence": game.scan_confidence,
+        "isInstalled": game.is_installed,
+    }))
+}
+
+#[tauri::command]
+fn scanner_v2_approve_game(id: String) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
+    db.approve_scanned_game(&id).map_err(|e| e.to_string())?;
+    Ok("Game approved".to_string())
+}
+
+#[tauri::command]
+fn scanner_v2_ignore_game(id: String) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
+    db.toggle_scanned_game_hidden(&id).map_err(|e| e.to_string())?;
+    Ok("Game hidden".to_string())
+}
+
+// ── Metadata Resolution ──
+
+#[tauri::command]
+fn resolve_game_metadata(name: String, steam_app_id: Option<String>) -> Result<serde_json::Value, String> {
+    let resolver = scanner::metadata_resolve::metadata_resolver();
+    let meta = resolver.resolve_for_game(&name, steam_app_id.as_deref())
+        .ok_or("Could not resolve metadata")?;
+    Ok(serde_json::json!({
+        "title": meta.title,
+        "developer": meta.developer,
+        "publisher": meta.publisher,
+        "releaseDate": meta.release_date,
+        "description": meta.description,
+        "coverUrl": meta.cover_url,
+        "bannerUrl": meta.banner_url,
+        "genres": meta.genres,
+        "rating": meta.rating,
+    }))
+}
+
+#[tauri::command]
+fn resolve_game_metadata_batch(games: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
+    let resolver = scanner::metadata_resolve::metadata_resolver();
+    let mut results = Vec::new();
+
+    for game in &games {
+        let name = game.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let app_id = game.get("appId").and_then(|v| v.as_str());
+        let id = game.get("id").and_then(|v| v.as_str()).unwrap_or("");
+
+        if let Some(meta) = resolver.resolve_for_game(name, app_id) {
+            results.push(serde_json::json!({
+                "id": id,
+                "metadata": {
+                    "title": meta.title,
+                    "developer": meta.developer,
+                    "publisher": meta.publisher,
+                    "coverUrl": meta.cover_url,
+                    "genres": meta.genres,
+                    "rating": meta.rating,
+                }
+            }));
+        }
+    }
+
+    Ok(serde_json::json!({ "results": results }))
+}
+
+// ── Launch Tracking ──
+
+#[tauri::command]
+fn track_game_launch(game_id: String, game_name: String, exe_path: String) -> Result<String, String> {
+    let tracker = scanner::launch_tracker::launch_tracker();
+    tracker.track_launch(&game_id, &game_name, &exe_path);
+    Ok(format!("Now tracking: {}", game_name))
+}
+
+#[tauri::command]
+fn get_active_game_sessions() -> Result<serde_json::Value, String> {
+    let tracker = scanner::launch_tracker::launch_tracker();
+    let sessions = tracker.get_active_sessions();
+    Ok(serde_json::json!({ "sessions": sessions }))
+}
+
+#[tauri::command]
+fn get_recent_game_sessions(limit: Option<usize>) -> Result<serde_json::Value, String> {
+    let tracker = scanner::launch_tracker::launch_tracker();
+    let sessions = tracker.get_recent_sessions(limit.unwrap_or(20));
+    Ok(serde_json::json!({ "sessions": sessions }))
+}
+
+#[tauri::command]
+fn stop_tracking_game(game_id: String) -> Result<String, String> {
+    let tracker = scanner::launch_tracker::launch_tracker();
+    tracker.stop_tracking(&game_id);
+    Ok("Stopped tracking".to_string())
+}
+
+#[tauri::command]
+fn check_game_processes() -> Result<serde_json::Value, String> {
+    let tracker = scanner::launch_tracker::launch_tracker();
+    let running = tracker.check_processes();
+    Ok(serde_json::json!({ "running": running }))
+}
+
+// ── Performance Profiles ──
+
+#[tauri::command]
+fn get_game_profile(game_id: String, game_name: String) -> Result<serde_json::Value, String> {
+    let manager = scanner::perf_profile::profile_manager();
+    let profile = manager.get_or_create_profile(&game_id, &game_name);
+    Ok(serde_json::json!(profile))
+}
+
+#[tauri::command]
+fn save_game_profile(profile: serde_json::Value) -> Result<String, String> {
+    let p: scanner::perf_profile::GamePerformanceProfile = serde_json::from_value(profile)
+        .map_err(|e| format!("Invalid profile: {}", e))?;
+    let manager = scanner::perf_profile::profile_manager();
+    manager.save_profile(p);
+    Ok("Profile saved".to_string())
+}
+
+#[tauri::command]
+fn apply_game_profile(game_id: String) -> Result<serde_json::Value, String> {
+    let manager = scanner::perf_profile::profile_manager();
+    let profile = manager.get_profile(&game_id)
+        .ok_or("No profile found for this game")?;
+    let applied = manager.apply_profile(&profile)?;
+    Ok(serde_json::json!({ "applied": applied }))
+}
+
+#[tauri::command]
+fn delete_game_profile(game_id: String) -> Result<String, String> {
+    let manager = scanner::perf_profile::profile_manager();
+    manager.delete_profile(&game_id);
+    Ok("Profile deleted".to_string())
+}
+
+#[tauri::command]
+fn list_game_profiles() -> Result<serde_json::Value, String> {
+    let manager = scanner::perf_profile::profile_manager();
+    let profiles = manager.list_profiles();
+    Ok(serde_json::json!({ "profiles": profiles }))
+}
+
+#[tauri::command]
+fn restore_default_profile() -> Result<serde_json::Value, String> {
+    let manager = scanner::perf_profile::profile_manager();
+    let applied = manager.restore_defaults()?;
+    Ok(serde_json::json!({ "applied": applied }))
+}
+
+// ── Scan Cache Persistence ──
+
+#[tauri::command]
+fn save_scan_cache(scanned_dirs: Vec<String>) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let cache_path = app_data.join("scan_cache.json");
+    let data = serde_json::json!({ "scanned_dirs": scanned_dirs });
+    std::fs::write(&cache_path, serde_json::to_string(&data).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    Ok("Scan cache saved".to_string())
+}
+
+#[tauri::command]
+fn load_scan_cache() -> Result<serde_json::Value, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let cache_path = app_data.join("scan_cache.json");
+    if !cache_path.exists() {
+        return Ok(serde_json::json!({ "scanned_dirs": [] }));
+    }
+    let data = std::fs::read_to_string(&cache_path).map_err(|e| e.to_string())?;
+    let json: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+// ── Scanner Settings ──
+
+#[tauri::command]
+fn get_scanner_settings() -> Result<serde_json::Value, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let settings_path = app_data.join("scanner_settings.json");
+    if !settings_path.exists() {
+        return Ok(serde_json::json!({
+            "scanRoots": [],
+            "excludePaths": [],
+            "autoScanOnLaunch": false,
+            "scanType": "quick",
+            "hideLowConfidence": true,
+            "confidenceThreshold": 0.3,
+        }));
+    }
+    let data = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
+    let json: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+#[tauri::command]
+fn save_scanner_settings(settings: serde_json::Value) -> Result<String, String> {
+    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let settings_path = app_data.join("scanner_settings.json");
+    std::fs::write(&settings_path, serde_json::to_string(&settings).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    Ok("Scanner settings saved".to_string())
 }
 
 const GAME_EXE_BLACKLIST: &[&str] = &[
@@ -3722,11 +4146,6 @@ fn get_performance_snapshot() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
-fn get_hardware_history() -> Result<Vec<serde_json::Value>, String> {
-    Ok(vec![])
-}
-
-#[tauri::command]
 fn get_system_info() -> Result<serde_json::Value, String> {
     let snap = get_cached_system_snapshot_json()?;
     let cpu_cores: u32 = System::new().cpus().len() as u32;
@@ -3798,12 +4217,173 @@ fn get_gpu_info() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 fn detect_overlay_tools() -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({ "overlay_found": false, "tools": [] }))
+    let tools: Vec<serde_json::Value> = Vec::new();
+    let mut rtss_status = "missing".to_string();
+    let mut rtss_path = None;
+    let mut afterburner_status = "missing".to_string();
+    let mut afterburner_path = None;
+
+    let program_files = std::env::var("ProgramFiles").unwrap_or_default();
+    let program_files_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+
+    // Detect RTSS
+    for base in [&program_files, &program_files_x86] {
+        let rtss_dir = std::path::PathBuf::from(base).join("RivaTuner Statistics Server");
+        if rtss_dir.join("RTSS.exe").exists() {
+            rtss_status = "found".to_string();
+            rtss_path = Some(rtss_dir.join("RTSS.exe").to_string_lossy().to_string());
+            break;
+        }
+    }
+
+    // Detect MSI Afterburner
+    for base in [&program_files, &program_files_x86] {
+        let ab_dir = std::path::PathBuf::from(base).join("MSI Afterburner");
+        if ab_dir.join("MSIAfterburner.exe").exists() {
+            afterburner_status = "found".to_string();
+            afterburner_path = Some(ab_dir.join("MSIAfterburner.exe").to_string_lossy().to_string());
+            break;
+        }
+    }
+
+    // Detect Xbox Game Bar (always available on Windows 10+)
+    let xbox_status = if cfg!(target_os = "windows") { "found" } else { "missing" };
+
+    Ok(serde_json::json!({
+        "overlay_found": rtss_status == "found" || afterburner_status == "found",
+        "rtssStatus": rtss_status,
+        "rtssPath": rtss_path,
+        "afterburnerStatus": afterburner_status,
+        "afterburnerPath": afterburner_path,
+        "hwinfoStatus": "disabled",
+        "xboxGameBarStatus": xbox_status,
+        "tools": tools,
+    }))
 }
 
 #[tauri::command]
 fn detect_streaming_tools() -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({ "obs_found": false, "tools": [] }))
+    let mut tools = Vec::new();
+    let mut obs_found = false;
+
+    let program_files = std::env::var("ProgramFiles").unwrap_or_default();
+    let program_files_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+    let local_app_data = dirs::data_local_dir().unwrap_or_default();
+
+    // Detect OBS Studio
+    for base in [&program_files, &program_files_x86] {
+        let obs_dir = std::path::PathBuf::from(base).join("OBS Studio");
+        if obs_dir.join("bin").join("64bit").join("obs64.exe").exists() {
+            obs_found = true;
+            tools.push(serde_json::json!({
+                "id": "obs", "name": "OBS Studio", "status": "found",
+                "path": obs_dir.join("bin").join("64bit").join("obs64.exe").to_string_lossy(),
+            }));
+            break;
+        }
+    }
+
+    // Check for Streamlabs
+    let streamlabs_dir = local_app_data.join("Programs").join("streamlabs");
+    if streamlabs_dir.join("Streamlabs OBS.exe").exists() {
+        tools.push(serde_json::json!({
+            "id": "streamlabs", "name": "Streamlabs", "status": "found",
+            "path": streamlabs_dir.join("Streamlabs OBS.exe").to_string_lossy(),
+        }));
+    }
+
+    Ok(serde_json::json!({
+        "obs_found": obs_found,
+        "tools": tools,
+    }))
+}
+
+fn find_exe_in_program_files(name: &str) -> Option<String> {
+    let program_files = std::env::var("ProgramFiles").unwrap_or_default();
+    let program_files_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+    for base in [&program_files, &program_files_x86] {
+        let dir = std::path::PathBuf::from(base).join(name);
+        if dir.exists() { return Some(dir.to_string_lossy().to_string()); }
+    }
+    None
+}
+
+#[tauri::command]
+fn launch_rtss() -> Result<String, String> {
+    let path = find_exe_in_program_files("RivaTuner Statistics Server")
+        .ok_or("RTSS not found")?;
+    let exe = std::path::PathBuf::from(&path).join("RTSS.exe");
+    std::process::Command::new("cmd").args(["/C", "start", "", &exe.to_string_lossy()]).spawn().map_err(|e| e.to_string())?;
+    Ok("Launched RTSS".to_string())
+}
+
+#[tauri::command]
+fn launch_rtss_as_admin() -> Result<String, String> {
+    let path = find_exe_in_program_files("RivaTuner Statistics Server")
+        .ok_or("RTSS not found")?;
+    let exe = std::path::PathBuf::from(&path).join("RTSS.exe");
+    std::process::Command::new("powershell").args(["Start-Process", "-FilePath", &exe.to_string_lossy(), "-Verb", "RunAs"]).spawn().map_err(|e| e.to_string())?;
+    Ok("Launched RTSS as admin".to_string())
+}
+
+#[tauri::command]
+fn launch_msi_afterburner() -> Result<String, String> {
+    let path = find_exe_in_program_files("MSI Afterburner")
+        .ok_or("MSI Afterburner not found")?;
+    let exe = std::path::PathBuf::from(&path).join("MSIAfterburner.exe");
+    std::process::Command::new("cmd").args(["/C", "start", "", &exe.to_string_lossy()]).spawn().map_err(|e| e.to_string())?;
+    Ok("Launched MSI Afterburner".to_string())
+}
+
+#[tauri::command]
+fn launch_msi_afterburner_as_admin() -> Result<String, String> {
+    let path = find_exe_in_program_files("MSI Afterburner")
+        .ok_or("MSI Afterburner not found")?;
+    let exe = std::path::PathBuf::from(&path).join("MSIAfterburner.exe");
+    std::process::Command::new("powershell").args(["Start-Process", "-FilePath", &exe.to_string_lossy(), "-Verb", "RunAs"]).spawn().map_err(|e| e.to_string())?;
+    Ok("Launched MSI Afterburner as admin".to_string())
+}
+
+#[tauri::command]
+fn launch_obs_studio() -> Result<String, String> {
+    let program_files = std::env::var("ProgramFiles").unwrap_or_default();
+    let program_files_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+    for base in [&program_files, &program_files_x86] {
+        let obs_exe = std::path::PathBuf::from(base).join("OBS Studio").join("bin").join("64bit").join("obs64.exe");
+        if obs_exe.exists() {
+            std::process::Command::new("cmd").args(["/C", "start", "", &obs_exe.to_string_lossy()]).spawn().map_err(|e| e.to_string())?;
+            return Ok("Launched OBS Studio".to_string());
+        }
+    }
+    Err("OBS Studio not found".to_string())
+}
+
+#[tauri::command]
+fn launch_obs_studio_as_admin() -> Result<String, String> {
+    let program_files = std::env::var("ProgramFiles").unwrap_or_default();
+    let program_files_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+    for base in [&program_files, &program_files_x86] {
+        let obs_exe = std::path::PathBuf::from(base).join("OBS Studio").join("bin").join("64bit").join("obs64.exe");
+        if obs_exe.exists() {
+            std::process::Command::new("powershell").args(["Start-Process", "-FilePath", &obs_exe.to_string_lossy(), "-Verb", "RunAs"]).spawn().map_err(|e| e.to_string())?;
+            return Ok("Launched OBS Studio as admin".to_string());
+        }
+    }
+    Err("OBS Studio not found".to_string())
+}
+
+#[tauri::command]
+fn open_obs_folder() -> Result<String, String> {
+    let program_files = std::env::var("ProgramFiles").unwrap_or_default();
+    let program_files_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+    for base in [&program_files, &program_files_x86] {
+        let obs_dir = std::path::PathBuf::from(base).join("OBS Studio");
+        if obs_dir.exists() {
+            std::process::Command::new("cmd").args(["/C", "explorer", &obs_dir.to_string_lossy()]).spawn().map_err(|e| e.to_string())?;
+            return Ok("Opened OBS folder".to_string());
+        }
+    }
+    Err("OBS Studio not found".to_string())
 }
 
 #[tauri::command]
@@ -3921,6 +4501,36 @@ fn load_gamevault_games() -> Result<Vec<GameVaultGame>, String> {
 #[tauri::command]
 fn get_gamevault_games() -> Result<Vec<GameVaultGame>, String> {
     load_gamevault_games()
+}
+
+#[tauri::command]
+fn get_tmdb_api_key() -> Result<String, String> {
+    let settings_path = settings_file_path()?;
+    if let Ok(content) = std::fs::read_to_string(&settings_path) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(key) = val.get("tmdb_api_key").and_then(|v| v.as_str()) {
+                if !key.is_empty() {
+                    return Ok(key.to_string());
+                }
+            }
+        }
+    }
+    // Fallback to built-in key
+    Ok("7c8599abf8bf4728727be7d446c108aa".to_string())
+}
+
+#[tauri::command]
+fn set_tmdb_api_key(key: String) -> Result<(), String> {
+    let settings_path = settings_file_path()?;
+    let mut val: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&settings_path) {
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    if let Some(obj) = val.as_object_mut() {
+        obj.insert("tmdb_api_key".to_string(), serde_json::Value::String(key));
+    }
+    std::fs::write(&settings_path, serde_json::to_string_pretty(&val).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -4699,7 +5309,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             use tauri::Manager;
@@ -4711,9 +5320,12 @@ pub fn run() {
                 std::thread::spawn(move || {
                     loop {
                         std::thread::sleep(std::time::Duration::from_secs(6 * 60 * 60));
+                        if !updater::should_auto_check() {
+                            continue;
+                        }
                         let h = handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            if let Ok(result) = check_for_updates().await {
+                            if let Ok(result) = updater::check_for_updates().await {
                                 let _ = h.emit("update-check-result", result);
                             }
                         });
@@ -4728,71 +5340,7 @@ pub fn run() {
                 }
                 e => { eprintln!("GameVault DB init failed: {:?}", e); }
             }
-            let hwinfo_path = std::path::Path::new(r"C:\Program Files\HWiNFO\HWiNFO64.exe");
-            let hwinfo_marker = app_data.join(".hwinfo_installed");
-
-            if !hwinfo_path.exists() && !hwinfo_marker.exists() {
-                let app_data_clone = app_data.clone();
-                let app_handle = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    let url = "https://www.hwinfo.com/files/hwi_816.exe";
-                    let cache_dir = app_data_clone.join("cache");
-                    let _ = fs::create_dir_all(&cache_dir);
-                    let installer_path = cache_dir.join("hwi_installer.exe");
-
-                    let client = reqwest::Client::builder()
-                        .timeout(std::time::Duration::from_secs(300))
-                        .redirect(reqwest::redirect::Policy::limited(5))
-                        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                        .build();
-                    if let Ok(client) = client {
-                        if let Ok(resp) = client.get(url).send().await {
-                            if let Ok(bytes) = resp.bytes().await {
-                                if let Ok(mut file) = fs::File::create(&installer_path) {
-                                    use std::io::Write;
-                                    let _ = file.write_all(&bytes);
-                                    drop(file);
-
-                                    let _ = app_handle.emit("gv-download-progress", serde_json::json!({
-                                        "id": "hwinfo",
-                                        "name": "HWiNFO",
-                                        "progress": 100.0,
-                                        "speed_bytes": 0u64,
-                                        "downloaded_bytes": bytes.len(),
-                                        "total_bytes": bytes.len() as u64,
-                                        "status": "extracting",
-                                    }));
-
-                                    let output = Command::new(&installer_path)
-                                        .args(["/S"])
-                                        .output();
-                                    let _ = fs::remove_file(&installer_path);
-
-                                    if output.is_ok() {
-                                        let _ = fs::write(&hwinfo_marker, "installed");
-                                        let _ = app_handle.emit("gv-install-complete", serde_json::json!({
-                                            "id": "hwinfo",
-                                            "success": true,
-                                            "message": "HWiNFO installed successfully",
-                                        }));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            } else if hwinfo_path.exists() {
-                let sys = System::new_all();
-                let hwinfo_running = sys.processes().values().any(|p|
-                    p.name().to_string_lossy().to_lowercase().contains("hwinfo")
-                );
-                if !hwinfo_running {
-                    let _ = Command::new(hwinfo_path)
-                        .args(["/s", "/min", "/sm"])
-                        .creation_flags(CREATE_NO_WINDOW)
-                        .spawn();
-                }
-            }
+            // HWiNFO removed - hardware monitoring now uses native NVML/sysinfo providers
 
             // ── System Tray ──
             {
@@ -4800,18 +5348,20 @@ pub fn run() {
                 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 
                 let show_item = MenuItemBuilder::with_id("show", "Show MVO Hub").build(app)?;
+                let scan_item = MenuItemBuilder::with_id("quick_scan", "Quick Scan").build(app)?;
                 let update_item = MenuItemBuilder::with_id("update", "Check for Updates").build(app)?;
                 let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
 
                 let menu = MenuBuilder::new(app)
                     .item(&show_item)
+                    .item(&scan_item)
                     .item(&update_item)
                     .separator()
                     .item(&quit_item)
                     .build()?;
 
                 let _tray = TrayIconBuilder::new()
-                    .icon(app.default_window_icon().unwrap().clone())
+                    .icon(if let Some(icon) = app.default_window_icon() { icon.clone() } else { return Ok(()); })
                     .menu(&menu)
                     .tooltip("MVO Hub — Running in background")
                     .on_menu_event(move |app, event| {
@@ -4822,10 +5372,16 @@ pub fn run() {
                                     let _ = window.set_focus();
                                 }
                             }
+                            "quick_scan" => {
+                                let handle = app.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    let _ = handle.emit("quick-scan-requested", ());
+                                });
+                            }
                             "update" => {
                                 let handle = app.clone();
                                 tauri::async_runtime::spawn(async move {
-                                    if let Ok(result) = check_for_updates().await {
+                                    if let Ok(result) = updater::check_for_updates().await {
                                         let _ = handle.emit("update-check-result", result);
                                     }
                                 });
@@ -4849,8 +5405,7 @@ pub fn run() {
             }
 
             // Intercept close → hide to tray
-            {
-                let window = app.get_webview_window("main").unwrap();
+            if let Some(window) = app.get_webview_window("main") {
                 let w = window.clone();
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -4890,6 +5445,7 @@ pub fn run() {
             sync_export_to_gist,
             sync_import_from_gist,
             sync_get_gist_id,
+            sync_get_status,
             load_mvo_settings,
             save_mvo_settings,
             reset_mvo_settings,
@@ -4950,8 +5506,39 @@ pub fn run() {
             toggle_scanned_game_favorite,
             toggle_scanned_game_hidden,
             update_scanned_game_playtime,
+            scanner_v2_scan,
+            scanner_v2_cancel_scan,
+            scanner_v2_get_ignore_rules,
+            scanner_v2_add_ignore_rule,
+            scanner_v2_remove_ignore_rule,
+            scanner_v2_manual_add_game,
+            scanner_v2_approve_game,
+            scanner_v2_ignore_game,
+            resolve_game_metadata,
+            resolve_game_metadata_batch,
+            track_game_launch,
+            get_active_game_sessions,
+            get_recent_game_sessions,
+            stop_tracking_game,
+            check_game_processes,
+            get_game_profile,
+            save_game_profile,
+            apply_game_profile,
+            delete_game_profile,
+            list_game_profiles,
+            restore_default_profile,
+            save_scan_cache,
+            load_scan_cache,
+            get_scanner_settings,
+            save_scanner_settings,
             get_performance_snapshot,
-            get_hardware_history,
+            hardware::commands::get_hardware_history,
+            hardware::commands::get_hardware_history_summary,
+            hardware::commands::get_hardware_health,
+            hardware::commands::get_hardware_sensor_history,
+            hardware::commands::save_hardware_snapshot,
+            hardware::commands::cleanup_old_sensor_data,
+            hardware::commands::get_hardware_recommendations,
             get_system_info,
             get_gpu_info,
             detect_overlay_tools,
@@ -5015,8 +5602,8 @@ pub fn run() {
             open_group_policy,
             open_local_users_groups,
             open_print_management,
-            check_for_updates,
-            download_and_install_update,
+            updater::check_for_updates,
+            updater::download_and_install_update,
             create_account,
             login,
             get_current_user,
@@ -5030,7 +5617,22 @@ pub fn run() {
             save_avatar,
             get_gpu_info_nvidia,
             get_screen_info,
-            snap_window
+            snap_window,
+            get_tmdb_api_key,
+            set_tmdb_api_key,
+            launch_rtss,
+            launch_rtss_as_admin,
+            launch_msi_afterburner,
+            launch_msi_afterburner_as_admin,
+            launch_obs_studio,
+            launch_obs_studio_as_admin,
+            open_obs_folder,
+            hardware::commands::start_hardware_monitor,
+            hardware::commands::stop_hardware_monitor,
+            hardware::commands::get_hardware_sensors,
+            hardware::commands::get_hardware_devices,
+            hardware::commands::get_hardware_status,
+            hardware::commands::get_hardware_snapshot
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

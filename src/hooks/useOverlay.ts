@@ -47,12 +47,8 @@ export function useOverlay() {
   }, []);
 
   const launchHwinfo = useCallback(async (admin = false) => {
-    try {
-      if (admin) await invoke('launch_hwinfo64_as_admin');
-      else await invoke('launch_hwinfo64');
-    } catch (e) {
-      console.error('HWiNFO launch failed:', e);
-    }
+    // HWiNFO auto-launch removed - use native hardware monitoring instead
+    console.log('HWiNFO launch disabled - use native hardware monitoring');
   }, []);
 
   useEffect(() => {

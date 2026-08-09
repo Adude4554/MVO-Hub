@@ -30,6 +30,8 @@ pub fn run_full_scan(progress: Option<ScanProgressCallback>) -> Vec<ScannedGame>
         Box::new(itch::ItchScanner::new()),
         Box::new(rockstar::RockstarScanner::new()),
         Box::new(minecraft::MinecraftScanner::new()),
+        Box::new(lutris::LutrisScanner::new()),
+        Box::new(heroic::HeroicScanner::new()),
         Box::new(emulator::EmulatorScanner::new()),
         Box::new(standalone::StandaloneScanner::new()),
     ];

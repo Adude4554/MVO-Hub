@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod engine;
 pub mod metadata;
 pub mod steam;
@@ -12,8 +14,22 @@ pub mod amazon;
 pub mod itch;
 pub mod rockstar;
 pub mod minecraft;
+pub mod lutris;
+pub mod heroic;
 pub mod emulator;
 pub mod standalone;
+pub mod candidate;
+pub mod confidence;
+pub mod filter;
+pub mod executable;
+pub mod filesystem;
+pub mod shortcut;
+pub mod dedup;
+pub mod ignore;
+pub mod scan_job;
+pub mod metadata_resolve;
+pub mod launch_tracker;
+pub mod perf_profile;
 
 #[cfg(test)]
 mod tests;
@@ -39,6 +55,30 @@ pub struct ScannedGame {
     pub install_size: Option<u64>,
     pub scan_confidence: f32,
     pub is_installed: bool,
+}
+
+impl ScannedGame {
+    pub fn confidence_level(&self) -> &str {
+        match (self.scan_confidence * 100.0) as u32 {
+            0..=29 => "ignore",
+            30..=49 => "weak",
+            50..=69 => "possible",
+            70..=89 => "likely",
+            _ => "confirmed",
+        }
+    }
+
+    pub fn needs_review(&self) -> bool {
+        self.scan_confidence >= 0.3 && self.scan_confidence < 0.7
+    }
+
+    pub fn display_name(&self) -> &str {
+        if self.name.is_empty() {
+            "Unknown Game"
+        } else {
+            &self.name
+        }
+    }
 }
 
 /// Trait that all platform scanners must implement

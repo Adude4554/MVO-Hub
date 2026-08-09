@@ -4,16 +4,16 @@ import { mvoProfiles } from "../profiles";
 import { t } from "../lib/i18n";
 import { useLocale } from "../hooks/useLocale";
 import { Dashboard } from "../pages/Dashboard";
-import GameLibrary from "../pages/GameLibrary";
+import { GameLibrary } from "../pages/GameLibrary";
 import { GameMode } from "../pages/GameMode";
 import { Optimizer } from "../pages/Optimizer";
 import { Performance } from "../pages/Performance";
 import { SystemBoost } from "../pages/SystemBoost";
-import AITools from "../pages/AITools";
+import { AITools } from "../pages/AITools";
 import { Overlay } from "../pages/Overlay";
 import { Streaming } from "../pages/Streaming";
 import { Files } from "../pages/Files";
-import { Web } from "../pages/Web";
+import { WebHub } from "../pages/WebHub";
 import { Tools } from "../pages/Tools";
 import { Settings } from "../pages/Settings";
 import { Scanner } from "../pages/Scanner";
@@ -99,7 +99,7 @@ export function Layout() {
                 <Route path="/overlay" element={<Overlay />} />
                 <Route path="/streaming" element={<Streaming />} />
                 <Route path="/files" element={<Files />} />
-                <Route path="/web" element={<Web />} />
+                <Route path="/web" element={<WebHub />} />
                 <Route path="/tools" element={<Tools />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>

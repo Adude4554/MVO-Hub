@@ -14,8 +14,11 @@ export interface UpdateInfo {
   error?: string;
 }
 
+export type UpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'installing' | 'completed' | 'error';
+
 export interface UpdateProgress {
   status: 'downloading' | 'installing' | 'done' | 'error';
+  state?: UpdateState;
   percent?: number;
   downloaded?: number;
   total?: number;
@@ -28,6 +31,8 @@ export function useUpdater() {
   const [error, setError] = useState<string | null>(null);
   const [lastChecked, setLastChecked] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
+  const [updaterState, setUpdaterState] = useState<UpdateState>('idle');
+  const [verificationProgress, setVerificationProgress] = useState(false);
   const checkingRef = useRef(false);
 
   const checkForUpdates = useCallback(async () => {
@@ -84,8 +89,15 @@ export function useUpdater() {
   useEffect(() => {
     const unlisten = listen<UpdateProgress>('update-progress', (event) => {
       setProgress(event.payload);
+      const state = event.payload.state;
+      if (state) setUpdaterState(state);
       if (event.payload.status === 'installing') {
         setDownloading(true);
+      }
+      if (state === 'verifying') {
+        setVerificationProgress(true);
+      } else {
+        setVerificationProgress(false);
       }
     });
     return () => { unlisten.then((fn: UnlistenFn) => fn()); };
@@ -111,6 +123,14 @@ export function useUpdater() {
     checkForUpdates();
   }, [checkForUpdates]);
 
+  const retry = useCallback(async () => {
+    setUpdaterState('idle');
+    setVerificationProgress(false);
+    setProgress(null);
+    setError(null);
+    await installUpdate();
+  }, [installUpdate]);
+
   return {
     updateInfo,
     downloading,
@@ -118,10 +138,13 @@ export function useUpdater() {
     error,
     lastChecked,
     showModal,
+    updaterState,
+    verificationProgress,
     checkForUpdates,
     installUpdate,
     dismiss,
     openModal,
     closeModal,
+    retry,
   };
 }

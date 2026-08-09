@@ -1,25 +1,37 @@
 import { useState, useEffect } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { Cpu, HardDrive, MemoryStick, Wifi, Info as InfoIcon, AlertTriangle as AlertTriangleIcon, CheckCircle as CheckCircleIcon } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Wifi, ArrowDown, ArrowUp, Info as InfoIcon, AlertTriangle as AlertTriangleIcon, CheckCircle as CheckCircleIcon } from 'lucide-react';
 
 interface BottomBarProps {
   performance: any;
-  hardware: any;
+  hardwareSensors: any;
   windowState: string;
 }
 
-export function BottomBar({ performance, hardware, windowState }: BottomBarProps) {
+function formatSpeed(bytesPerSec: number): string {
+  if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+  return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+}
+
+export function BottomBar({ performance, hardwareSensors, windowState }: BottomBarProps) {
   const [version, setVersion] = useState('...');
   useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
-  const memPercent = performance?.snapshot && performance.snapshot.total_memory > 0 ? ((performance.snapshot.used_memory / performance.snapshot.total_memory) * 100).toFixed(1) : '0';
-  const cpuPercent = performance?.snapshot?.cpu_usage?.toFixed(1) || '0';
+
+  const hs = hardwareSensors;
+  const cpuPercent = hs?.cpuUsage?.toFixed(1) || performance?.snapshot?.cpu_usage?.toFixed(1) || '0';
+  const memPercent = hs?.memTotal > 0 ? ((hs.memUsed / hs.memTotal) * 100).toFixed(1) : performance?.snapshot && performance.snapshot.total_memory > 0 ? ((performance.snapshot.used_memory / performance.snapshot.total_memory) * 100).toFixed(1) : '0';
   const diskPercent = performance?.snapshot && performance.snapshot.total_storage > 0 ? ((performance.snapshot.used_storage / performance.snapshot.total_storage) * 100).toFixed(1) : '0';
+
+  const totalRx = hs?.networkSpeeds?.reduce((sum: number, n: any) => sum + (n.receivedRate || 0), 0) || 0;
+  const totalTx = hs?.networkSpeeds?.reduce((sum: number, n: any) => sum + (n.transmittedRate || 0), 0) || 0;
 
   const statusItems = [
     { label: 'CPU', value: `${cpuPercent}%`, icon: <Cpu className="w-4 h-4" />, color: 'text-cyan-400' },
     { label: 'RAM', value: `${memPercent}%`, icon: <MemoryStick className="w-4 h-4" />, color: 'text-purple-400' },
     { label: 'Disk', value: `${diskPercent}%`, icon: <HardDrive className="w-4 h-4" />, color: 'text-amber-400' },
-    { label: 'Net', value: 'Online', icon: <Wifi className="w-4 h-4" />, color: 'text-green-400' },
+    { label: 'GPU', value: hs?.gpuUsage ? `${hs.gpuUsage.toFixed(0)}%` : '--', icon: <Cpu className="w-4 h-4" />, color: 'text-green-400' },
+    { label: 'NET', value: `${formatSpeed(totalRx)} / ${formatSpeed(totalTx)}`, icon: <Wifi className="w-4 h-4" />, color: 'text-blue-400' },
   ];
 
   return (

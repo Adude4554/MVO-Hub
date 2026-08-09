@@ -120,13 +120,31 @@ export function useAI() {
     try {
       await invoke('chat_add_message', { sessionId, role: 'user', content: currentInput });
 
+      // Build system context from hardware data
+      let sysContext = '';
+      try {
+        const snap = await invoke<any>('get_hardware_snapshot');
+        if (snap?.sensors) {
+          const cpu = snap.sensors.find((s: any) => s.id === 'cpu.usage');
+          const mem = snap.sensors.find((s: any) => s.id === 'memory.usage');
+          const gpu = snap.sensors.find((s: any) => s.id?.includes('gpu') && s.id?.includes('usage'));
+          const gpuTemp = snap.sensors.find((s: any) => s.id?.includes('gpu') && s.id?.includes('temperature'));
+          const parts: string[] = [];
+          if (cpu) parts.push(`CPU: ${cpu.value.toFixed(1)}%`);
+          if (mem) parts.push(`RAM: ${mem.value.toFixed(1)}%`);
+          if (gpu) parts.push(`GPU: ${gpu.value.toFixed(1)}%`);
+          if (gpuTemp) parts.push(`GPU Temp: ${gpuTemp.value.toFixed(0)}°C`);
+          if (parts.length) sysContext = `System: ${parts.join(', ')}`;
+        }
+      } catch {}
+
       const response = await invoke<string>('ask_ai', {
         provider: 'ollama',
         baseUrl: 'http://localhost:11434',
         apiKey: '',
         model: selectedModel,
         prompt: currentInput,
-        context: '',
+        context: sysContext,
       });
 
       setMessages(prev => [...prev, { role: 'assistant', content: response, timestamp: Date.now() }]);

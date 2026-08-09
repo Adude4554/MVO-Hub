@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { GlassCard } from '../components/ui';
-import { Search, Play, FolderOpen, Loader2, AlertTriangle, Scan, Check, ChevronDown, ChevronUp, Star, EyeOff, Database, HardDrive } from 'lucide-react';
+import { Search, Play, FolderOpen, Loader2, AlertTriangle, Scan, Check, ChevronDown, ChevronUp, Star, EyeOff, Database, HardDrive, X, Plus, Shield, ShieldAlert, ShieldCheck, Eye, Info } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useLocale } from '../hooks/useLocale';
 import { t } from '../lib/i18n';
@@ -26,11 +26,18 @@ interface ScannedGame {
   isHidden?: boolean;
 }
 
-interface ScanResult {
+interface ScanV2Result {
   games: ScannedGame[];
   total: number;
-  message: string;
+  duplicates: number;
+  directoriesScanned: number;
+  candidatesFound: number;
+  errors: number;
+  durationMs: number;
+  scanType: string;
 }
+
+type ScanType = 'quick' | 'full' | 'custom';
 
 export function Scanner() {
   useLocale();
@@ -39,16 +46,26 @@ export function Scanner() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'platform' | 'size'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'platform' | 'size' | 'confidence'>('name');
   const [expandedGame, setExpandedGame] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [dataSource, setDataSource] = useState<'db' | 'scan'>('db');
+  const [scanType, setScanType] = useState<ScanType>('quick');
+  const [scanResult, setScanResult] = useState<ScanV2Result | null>(null);
+  const [showReview, setShowReview] = useState(false);
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualName, setManualName] = useState('');
+  const [manualPath, setManualPath] = useState('');
+  const [manualExe, setManualExe] = useState('');
+  const [metadataCache, setMetadataCache] = useState<Record<string, any>>({});
+  const [resolvingMetadata, setResolvingMetadata] = useState<string | null>(null);
+  const [activeSessions, setActiveSessions] = useState<Record<string, boolean>>({});
+  const [scanningCancelled, setScanningCancelled] = useState(false);
+  const [batchResolving, setBatchResolving] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
 
-  // Load from DB on mount
-  useEffect(() => {
-    loadFromDB();
-  }, []);
+  useEffect(() => { loadFromDB(); }, []);
 
   const loadFromDB = useCallback(async () => {
     try {
@@ -66,13 +83,45 @@ export function Scanner() {
     setScanning(true);
     setError(null);
     setGames([]);
+    setScanResult(null);
     try {
-      const result = await invoke<ScanResult>('scan_all_platforms');
+      const result = await invoke<ScanV2Result>('scanner_v2_scan', {
+        scanType,
+        paths: [],
+      });
       setGames(result.games);
+      setScanResult(result);
       setDataSource('scan');
-      // Save to DB
       try {
-        await invoke('save_scanned_games_to_db', { games: result.games });
+        const rows = result.games.map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          platform: g.platform,
+          launcher: g.launcher,
+          installPath: g.installPath,
+          exePath: g.exePath || null,
+          appId: g.appId || null,
+          version: g.version || null,
+          coverPath: g.coverPath || null,
+          coverLocal: g.coverLocal || null,
+          iconLocal: g.iconLocal || null,
+          installSize: g.installSize || 0,
+          scanConfidence: g.scanConfidence,
+          isInstalled: g.isInstalled,
+          isFavorite: false,
+          isHidden: false,
+          playtimeSeconds: 0,
+          lastPlayed: null,
+          scannedAt: '',
+          workingDir: null,
+          launchArgs: null,
+          confidenceReasons: '[]',
+          scanSource: g.platform,
+          driveLetter: '',
+          metadataStatus: 'none',
+          lastScanId: '',
+        }));
+        await invoke('save_scanned_games_to_db', { games: rows });
       } catch (e) {
         console.error('Failed to save to DB:', e);
       }
@@ -80,6 +129,15 @@ export function Scanner() {
       setError(String(e));
     }
     setScanning(false);
+  }, [scanType]);
+
+  const cancelScan = useCallback(async () => {
+    try {
+      await invoke('scanner_v2_cancel_scan');
+      setScanning(false);
+    } catch (e) {
+      console.error('Failed to cancel:', e);
+    }
   }, []);
 
   const toggleFavorite = useCallback(async (id: string) => {
@@ -100,10 +158,89 @@ export function Scanner() {
     }
   }, []);
 
+  const approveGame = useCallback(async (id: string) => {
+    try {
+      await invoke('scanner_v2_approve_game', { id });
+      setGames(prev => prev.map(g => g.id === id ? { ...g, scanConfidence: 1.0 } : g));
+      setToast({ msg: 'Game approved', ok: true });
+    } catch (e) {
+      setToast({ msg: String(e), ok: false });
+    }
+  }, []);
+
+  const manualAddGame = useCallback(async () => {
+    if (!manualName || !manualPath) return;
+    try {
+      const game = await invoke<any>('scanner_v2_manual_add_game', {
+        name: manualName,
+        installPath: manualPath,
+        exePath: manualExe || null,
+      });
+      setGames(prev => [...prev, game]);
+      setShowManualAdd(false);
+      setManualName('');
+      setManualPath('');
+      setManualExe('');
+      setToast({ msg: `Added ${game.name}`, ok: true });
+    } catch (e) {
+      setToast({ msg: String(e), ok: false });
+    }
+  }, [manualName, manualPath, manualExe]);
+
+  const resolveMetadata = useCallback(async (game: ScannedGame) => {
+    setResolvingMetadata(game.id);
+    try {
+      const metadata = await invoke<any>('resolve_game_metadata', { name: game.name, steamAppId: game.appId || null });
+      if (metadata) {
+        setMetadataCache(prev => ({ ...prev, [game.id]: metadata }));
+        setToast({ msg: `Metadata resolved for ${game.name}`, ok: true });
+      } else {
+        setToast({ msg: `No metadata found for ${game.name}`, ok: false });
+      }
+    } catch (e) {
+      setToast({ msg: String(e), ok: false });
+    }
+    setResolvingMetadata(null);
+  }, []);
+
+  const batchResolveMetadata = useCallback(async () => {
+    const unresolved = games.filter(g => !metadataCache[g.id]);
+    if (unresolved.length === 0) return;
+    setBatchResolving(true);
+    setBatchProgress({ done: 0, total: unresolved.length });
+    for (let i = 0; i < unresolved.length; i++) {
+      const game = unresolved[i];
+      try {
+        const metadata = await invoke<any>('resolve_game_metadata', { name: game.name, steamAppId: game.appId || null });
+        if (metadata) {
+          setMetadataCache(prev => ({ ...prev, [game.id]: metadata }));
+        }
+      } catch (e) {
+        console.error(`Failed to resolve metadata for ${game.name}:`, e);
+      }
+      setBatchProgress({ done: i + 1, total: unresolved.length });
+    }
+    setBatchResolving(false);
+    setToast({ msg: `Metadata resolved for ${unresolved.length} games`, ok: true });
+  }, [games, metadataCache]);
+
+  const trackLaunch = useCallback(async (game: ScannedGame) => {
+    try {
+      await invoke('track_game_launch', { gameId: game.id, name: game.name, platform: game.platform, exePath: game.exePath || '' });
+      setActiveSessions(prev => ({ ...prev, [game.id]: true }));
+    } catch (e) {
+      console.error('Failed to track launch:', e);
+    }
+  }, []);
+
   const filteredGames = games
     .filter(g => {
+      if (g.isHidden && filter !== 'hidden') return false;
       if (filter === 'all') return true;
       if (filter === 'installed') return g.isInstalled;
+      if (filter === 'favorites') return g.isFavorite;
+      if (filter === 'review') return g.scanConfidence >= 0.3 && g.scanConfidence < 0.7;
+      if (filter === 'hidden') return g.isHidden;
       return g.platform.toLowerCase() === filter.toLowerCase();
     })
     .filter(g => search === '' || g.name.toLowerCase().includes(search.toLowerCase()))
@@ -111,10 +248,15 @@ export function Scanner() {
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'platform') return a.platform.localeCompare(b.platform);
       if (sortBy === 'size') return (b.installSize || 0) - (a.installSize || 0);
+      if (sortBy === 'confidence') return b.scanConfidence - a.scanConfidence;
       return 0;
     });
 
   const platforms = [...new Set(games.map(g => g.platform))].sort();
+
+  const confirmedCount = games.filter(g => g.scanConfidence >= 0.7).length;
+  const likelyCount = games.filter(g => g.scanConfidence >= 0.5 && g.scanConfidence < 0.7).length;
+  const reviewCount = games.filter(g => g.scanConfidence >= 0.3 && g.scanConfidence < 0.5).length;
 
   const formatSize = (bytes?: number) => {
     if (!bytes) return 'Unknown';
@@ -122,6 +264,11 @@ export function Scanner() {
     if (gb >= 1) return `${gb.toFixed(1)} GB`;
     const mb = bytes / (1024 * 1024);
     return `${mb.toFixed(1)} MB`;
+  };
+
+  const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
   };
 
   const launchGame = async (game: ScannedGame) => {
@@ -137,6 +284,7 @@ export function Scanner() {
       } else {
         setToast({ msg: 'No executable found for this game', ok: false });
       }
+      trackLaunch(game);
     } catch (e: any) {
       setToast({ msg: String(e), ok: false });
     }
@@ -167,8 +315,18 @@ export function Scanner() {
       'Minecraft': 'bg-green-600/20 text-green-300 border-green-600/30',
       'Emulator': 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
       'Standalone': 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+      'Filesystem': 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+      'Shortcut': 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+      'Manual': 'bg-amber-500/20 text-amber-400 border-amber-500/30',
     };
     return colors[platform] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+  };
+
+  const getConfidenceIcon = (conf: number) => {
+    if (conf >= 0.7) return <ShieldCheck className="w-4 h-4 text-green-400" />;
+    if (conf >= 0.5) return <Shield className="w-4 h-4 text-yellow-400" />;
+    if (conf >= 0.3) return <ShieldAlert className="w-4 h-4 text-orange-400" />;
+    return <EyeOff className="w-4 h-4 text-gray-500" />;
   };
 
   return (
@@ -176,7 +334,7 @@ export function Scanner() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-mvo-text">{t('scanner.title') || 'Universal Game Scanner'}</h1>
+          <h1 className="font-display text-2xl font-bold text-mvo-text">{t('scanner.title') || 'Game Scanner V2'}</h1>
           <p className="text-mvo-textDim mt-1 flex items-center gap-2">
             {games.length > 0
               ? `Found ${games.length} games across ${platforms.length} platforms`
@@ -186,29 +344,61 @@ export function Scanner() {
             </span>
           </p>
         </div>
-        <button
-          onClick={startScan}
-          disabled={scanning}
-          className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 flex items-center gap-2"
-        >
+        <div className="flex items-center gap-3">
+          <select
+            value={scanType}
+            onChange={e => setScanType(e.target.value as ScanType)}
+            className="bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text text-sm px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-400/50 appearance-none cursor-pointer"
+          >
+            <option value="quick">Quick Scan</option>
+            <option value="full">Full Scan</option>
+            <option value="custom">Custom Scan</option>
+          </select>
+          <button
+            onClick={() => setShowManualAdd(true)}
+            className="px-4 py-2 bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text rounded-xl text-sm flex items-center gap-2 hover:bg-mvo-panelHover transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Game
+          </button>
+          {games.length > 0 && (
+            <button
+              onClick={batchResolveMetadata}
+              disabled={batchResolving || games.every(g => metadataCache[g.id])}
+              className="px-4 py-2 bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text rounded-xl text-sm flex items-center gap-2 hover:bg-mvo-panelHover transition-colors disabled:opacity-50"
+            >
+              {batchResolving ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> {batchProgress.done}/{batchProgress.total}</>
+              ) : (
+                <><Database className="w-4 h-4" /> Resolve All Metadata</>
+              )}
+            </button>
+          )}
           {scanning ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Scanning...
-            </>
+            <button
+              onClick={cancelScan}
+              className="px-6 py-3 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl font-medium transition-all duration-200 flex items-center gap-2"
+            >
+              <X className="w-5 h-5" />
+              Cancel
+            </button>
           ) : (
-            <>
+            <button
+              onClick={startScan}
+              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-medium transition-all duration-200 flex items-center gap-2"
+            >
               <Scan className="w-5 h-5" />
               {t('scanner.scanButton') || 'Scan PC'}
-            </>
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {/* Toast */}
       {toast && (
         <div className={`flex items-center gap-2 p-3 rounded-xl text-sm ${toast.ok ? 'bg-green-400/10 text-green-400 border border-green-400/30' : 'bg-red-400/10 text-red-400 border border-red-400/30'}`}>
-          {toast.ok ? '✓' : '⚠'} {toast.msg}
+          {toast.ok ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+          {toast.msg}
         </div>
       )}
 
@@ -219,6 +409,24 @@ export function Scanner() {
           <h3 className="text-lg font-semibold mb-2">Scan Failed</h3>
           <p className="text-mvo-textDim">{error}</p>
         </GlassCard>
+      )}
+
+      {/* Scan Stats */}
+      {scanResult && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {[
+            { label: 'Games Found', value: scanResult.total, color: 'text-cyan-400' },
+            { label: 'Confirmed', value: confirmedCount, color: 'text-green-400' },
+            { label: 'Likely', value: likelyCount, color: 'text-yellow-400' },
+            { label: 'Review', value: reviewCount, color: 'text-orange-400' },
+            { label: 'Duration', value: formatDuration(scanResult.durationMs), color: 'text-blue-400' },
+          ].map((stat) => (
+            <GlassCard key={stat.label} className="p-3 text-center">
+              <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
+              <div className="text-xs text-mvo-textDim">{stat.label}</div>
+            </GlassCard>
+          ))}
+        </div>
       )}
 
       {/* Results */}
@@ -241,8 +449,11 @@ export function Scanner() {
               onChange={e => setFilter(e.target.value)}
               className="bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text text-sm px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-400/50 appearance-none cursor-pointer"
             >
-              <option value="all">All Platforms</option>
+              <option value="all">All Games</option>
               <option value="installed">Installed Only</option>
+              <option value="favorites">Favorites</option>
+              <option value="review">Needs Review ({reviewCount})</option>
+              <option value="hidden">Hidden</option>
               {platforms.map(p => (
                 <option key={p} value={p}>{p}</option>
               ))}
@@ -255,6 +466,7 @@ export function Scanner() {
               <option value="name">Sort by Name</option>
               <option value="platform">Sort by Platform</option>
               <option value="size">Sort by Size</option>
+              <option value="confidence">Sort by Confidence</option>
             </select>
           </div>
 
@@ -286,24 +498,17 @@ export function Scanner() {
                       alt={game.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
-                      onError={e => {
-                        const img = e.target as HTMLImageElement;
-                        img.style.display = 'none';
-                      }}
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   ) : game.iconLocal ? (
-                    <img
-                      src={game.iconLocal}
-                      alt={game.name}
-                      className="w-16 h-16 m-auto mt-8"
-                      loading="lazy"
-                    />
+                    <img src={game.iconLocal} alt={game.name} className="w-16 h-16 m-auto mt-8" loading="lazy" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-4xl text-mvo-textMuted">
                       {game.name.charAt(0)}
                     </div>
                   )}
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    {getConfidenceIcon(game.scanConfidence)}
                     <span className={`px-2 py-1 rounded text-xs font-medium border ${getPlatformColor(game.platform)}`}>
                       {game.platform}
                     </span>
@@ -314,7 +519,13 @@ export function Scanner() {
                 <div className="p-4">
                   <h3 className="font-semibold text-mvo-text truncate">{game.name}</h3>
                   <p className="text-xs text-mvo-textDim mt-1 truncate">{game.launcher}</p>
-                  <p className="text-xs text-mvo-textDim">{formatSize(game.installSize)}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-mvo-textDim">{formatSize(game.installSize)}</p>
+                    <span className="text-xs text-mvo-textMuted">•</span>
+                    <p className={`text-xs ${game.scanConfidence >= 0.7 ? 'text-green-400' : game.scanConfidence >= 0.5 ? 'text-yellow-400' : 'text-orange-400'}`}>
+                      {(game.scanConfidence * 100).toFixed(0)}% confidence
+                    </p>
+                  </div>
 
                   {/* Expand/Collapse */}
                   <button
@@ -348,6 +559,46 @@ export function Scanner() {
                         <span className="text-mvo-textMuted">Confidence:</span>
                         <p className="text-mvo-text">{(game.scanConfidence * 100).toFixed(0)}%</p>
                       </div>
+                      {metadataCache[game.id] && (
+                        <>
+                          {metadataCache[game.id].developer && (
+                            <div>
+                              <span className="text-mvo-textMuted">Developer:</span>
+                              <p className="text-mvo-text">{metadataCache[game.id].developer}</p>
+                            </div>
+                          )}
+                          {metadataCache[game.id].publisher && (
+                            <div>
+                              <span className="text-mvo-textMuted">Publisher:</span>
+                              <p className="text-mvo-text">{metadataCache[game.id].publisher}</p>
+                            </div>
+                          )}
+                          {metadataCache[game.id].release_date && (
+                            <div>
+                              <span className="text-mvo-textMuted">Release:</span>
+                              <p className="text-mvo-text">{metadataCache[game.id].release_date}</p>
+                            </div>
+                          )}
+                          {metadataCache[game.id].genres && metadataCache[game.id].genres.length > 0 && (
+                            <div>
+                              <span className="text-mvo-textMuted">Genres:</span>
+                              <p className="text-mvo-text">{metadataCache[game.id].genres.join(', ')}</p>
+                            </div>
+                          )}
+                          {metadataCache[game.id].description && (
+                            <div>
+                              <span className="text-mvo-textMuted">Description:</span>
+                              <p className="text-mvo-text line-clamp-3">{metadataCache[game.id].description}</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {activeSessions[game.id] && (
+                        <div className="flex items-center gap-2 text-green-400">
+                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                          <span className="text-xs font-medium">Currently Playing</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -371,6 +622,15 @@ export function Scanner() {
                     >
                       <FolderOpen className="w-4 h-4" />
                     </button>
+                    {game.scanConfidence < 0.7 && (
+                      <button
+                        onClick={() => approveGame(game.id)}
+                        className="btn-secondary py-2 px-3 text-green-400"
+                        title="Approve Game"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => toggleFavorite(game.id)}
                       className={`btn-secondary py-2 px-3 ${game.isFavorite ? 'text-yellow-400' : ''}`}
@@ -385,6 +645,16 @@ export function Scanner() {
                     >
                       <EyeOff className="w-4 h-4" />
                     </button>
+                    {!metadataCache[game.id] && (
+                      <button
+                        onClick={() => resolveMetadata(game)}
+                        disabled={resolvingMetadata === game.id}
+                        className="btn-secondary py-2 px-3"
+                        title="Resolve Metadata"
+                      >
+                        {resolvingMetadata === game.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Info className="w-4 h-4" />}
+                      </button>
+                    )}
                   </div>
                 </div>
               </GlassCard>
@@ -419,6 +689,62 @@ export function Scanner() {
             ))}
           </div>
         </GlassCard>
+      )}
+
+      {/* Manual Add Modal */}
+      {showManualAdd && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowManualAdd(false)}>
+          <GlassCard className="w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-4">Add Game Manually</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-mvo-textDim">Game Name</label>
+                <input
+                  type="text"
+                  value={manualName}
+                  onChange={e => setManualName(e.target.value)}
+                  placeholder="My Game"
+                  className="w-full bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text text-sm px-3 py-2 rounded-xl mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-mvo-textDim">Install Path</label>
+                <input
+                  type="text"
+                  value={manualPath}
+                  onChange={e => setManualPath(e.target.value)}
+                  placeholder="C:\Games\MyGame"
+                  className="w-full bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text text-sm px-3 py-2 rounded-xl mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-mvo-textDim">Executable (optional)</label>
+                <input
+                  type="text"
+                  value={manualExe}
+                  onChange={e => setManualExe(e.target.value)}
+                  placeholder="C:\Games\MyGame\game.exe"
+                  className="w-full bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text text-sm px-3 py-2 rounded-xl mt-1"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={manualAddGame}
+                disabled={!manualName || !manualPath}
+                className="flex-1 btn-primary py-2 disabled:opacity-50"
+              >
+                Add Game
+              </button>
+              <button
+                onClick={() => setShowManualAdd(false)}
+                className="flex-1 btn-secondary py-2"
+              >
+                Cancel
+              </button>
+            </div>
+          </GlassCard>
+        </div>
       )}
     </div>
   );

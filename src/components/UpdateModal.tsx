@@ -6,12 +6,13 @@ interface UpdateModalProps {
   update: UpdateInfo;
   progress: UpdateProgress | null;
   downloading: boolean;
+  verificationProgress: boolean;
   error: string | null;
   onUpdate: () => void;
   onClose: () => void;
 }
 
-export function UpdateModal({ update, progress, downloading, error, onUpdate, onClose }: UpdateModalProps) {
+export function UpdateModal({ update, progress, downloading, verificationProgress, error, onUpdate, onClose }: UpdateModalProps) {
   const force = update.force;
 
   return (
@@ -58,9 +59,13 @@ export function UpdateModal({ update, progress, downloading, error, onUpdate, on
           )}
 
           {/* File size */}
-          {update.file_size && update.file_size > 0 && (
+          {update.file_size && update.file_size > 0 ? (
             <div className="text-xs text-mvo-textDim">
               Size: <span className="text-mvo-text">{(update.file_size / 1024 / 1024).toFixed(1)} MB</span>
+            </div>
+          ) : (
+            <div className="text-xs text-mvo-textDim">
+              Size: <span className="text-mvo-textMuted">Unknown</span>
             </div>
           )}
 
@@ -101,6 +106,14 @@ export function UpdateModal({ update, progress, downloading, error, onUpdate, on
                   <span>{((progress.downloaded || 0) / 1024 / 1024).toFixed(1)} MB / {(progress.total / 1024 / 1024).toFixed(1)} MB</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Verification state */}
+          {verificationProgress && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-cyan-400/5 border border-cyan-400/20">
+              <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+              <p className="text-xs text-cyan-400 font-medium">Verifying update integrity...</p>
             </div>
           )}
 

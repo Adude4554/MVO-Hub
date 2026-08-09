@@ -33,7 +33,7 @@ export function GameMode({ activeProfile, setActiveProfile }: any) {
           { id: 'astra', name: 'Astra', icon: '⭐', desc: 'Balanced/Everyday — Stability, lower heat, normal usage', color: 'text-amber-400', bg: 'bg-amber-400/10', border: 'border-amber-400/30' },
         ].map(p => (
           <button key={p.id} onClick={() => setActiveProfile(p.id)} className={`glass rounded-2xl p-6 transition-all relative overflow-hidden group ${activeProfile === p.id ? 'ring-2 ring-cyan-400/50 bg-cyan-400/5' : 'hover:border-mvo-borderBright/50'}`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-[var(--tw-gradient-from)]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ '--tw-gradient-from': p.color.replace('text-', '') }} />
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-[var(--tw-gradient-from)]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ '--tw-gradient-from': p.color.replace('text-', '') } as React.CSSProperties} />
             <div className="relative">
               <span className="text-4xl">{p.icon}</span>
               <h3 className="font-display text-xl font-bold mt-2 text-mvo-text">{p.name}</h3>

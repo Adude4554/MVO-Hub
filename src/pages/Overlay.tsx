@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { GlassCard } from '../components/ui';
-import { Monitor, FolderOpen, Loader2, TrendingUp, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Monitor, FolderOpen, Loader2, TrendingUp, CheckCircle, AlertTriangle, Cpu, Thermometer, Gauge, Activity } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useLocale } from '../hooks/useLocale';
 import { t } from '../lib/i18n';
 
-export function Overlay({ overlay }: any) {
+export function Overlay({ overlay, hardwareSensors }: any) {
   useLocale();
   const [loading, setLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const hs = hardwareSensors;
 
   const run = async (id: string, cmd: string) => {
     setLoading(id);
@@ -41,6 +43,38 @@ export function Overlay({ overlay }: any) {
           {toast.ok ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
           {toast.msg}
         </div>
+      )}
+
+      {hs && (
+        <GlassCard className="p-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><Activity className="w-5 h-5 text-cyan-400" /> Live Hardware Stats</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="glass-strong rounded-lg p-4 text-center">
+              <Cpu className="w-5 h-5 text-cyan-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-mvo-text">{hs.cpuUsage?.toFixed(1) || '0'}%</div>
+              <div className="text-xs text-mvo-textDim mt-1">CPU Usage</div>
+              <div className="text-xs text-mvo-textMuted">{hs.cpuDevice?.name || 'Unknown'}</div>
+            </div>
+            <div className="glass-strong rounded-lg p-4 text-center">
+              <Thermometer className="w-5 h-5 text-red-400 mx-auto mb-2" />
+              <div className={`text-2xl font-bold ${hs.gpuTemperature > 80 ? 'text-red-400' : 'text-mvo-text'}`}>{hs.gpuTemperature?.toFixed(0) || '--'}°C</div>
+              <div className="text-xs text-mvo-textDim mt-1">GPU Temp</div>
+              <div className="text-xs text-mvo-textMuted">{hs.gpuDevice?.name || 'No GPU'}</div>
+            </div>
+            <div className="glass-strong rounded-lg p-4 text-center">
+              <Gauge className="w-5 h-5 text-green-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-mvo-text">{hs.gpuUsage?.toFixed(1) || '0'}%</div>
+              <div className="text-xs text-mvo-textDim mt-1">GPU Usage</div>
+              <div className="text-xs text-mvo-textMuted">{hs.gpuPower ? `${hs.gpuPower.toFixed(0)}W` : 'N/A'}</div>
+            </div>
+            <div className="glass-strong rounded-lg p-4 text-center">
+              <Monitor className="w-5 h-5 text-purple-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-mvo-text">{hs.gpuVramTotal ? `${(hs.gpuVramTotal / 1e9).toFixed(1)}` : '0'} GB</div>
+              <div className="text-xs text-mvo-textDim mt-1">VRAM Total</div>
+              <div className="text-xs text-mvo-textMuted">{hs.gpuVramUsed ? `${(hs.gpuVramUsed / 1e9).toFixed(1)} GB used` : 'N/A'}</div>
+            </div>
+          </div>
+        </GlassCard>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

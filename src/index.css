@@ -501,14 +501,6 @@
   animation: pageEnter 0.3s ease-out both;
 }
 
-.stat-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 212, 255, 0.1);
-}
-
 .shimmer {
   background: linear-gradient(90deg, transparent 0%, rgba(0, 212, 255, 0.05) 50%, transparent 100%);
   background-size: 200% 100%;

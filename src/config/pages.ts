@@ -26,6 +26,7 @@ export const availablePages: PageConfig[] = [
    { id: 'settings', label: 'Settings', icon: '⚙️', group: 'system', description: 'App preferences & profiles' },
    { id: 'overlay', label: 'Overlay', icon: '📈', group: 'tools', description: 'In-game monitoring tools' },
    { id: 'performance', label: 'Performance', icon: '📈', group: 'tools', description: 'CPU, RAM, storage, GPU metrics' },
+   { id: 'hardware', label: 'Hardware Monitor', icon: '🔧', group: 'tools', description: 'Real-time hardware sensors & alerts' },
    { id: 'systemboost', label: 'System Boost', icon: '🚀', group: 'tools', description: 'One-click performance modes' },
    { id: 'aitools', label: 'AI Tools', icon: '🤖', group: 'tools', description: 'Local & cloud AI assistants' },
    { id: 'webhub', label: 'Web Hub', icon: '🌐', group: 'tools', description: 'Gaming & dev resource links' },

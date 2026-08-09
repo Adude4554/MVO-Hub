@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Play, Loader2, AlertTriangle, Search, ChevronLeft, Check } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { FeaturedRow } from '../components/FeaturedRow';
+
+let _tmdbKey = '';
+async function getTmdbKey() {
+  if (!_tmdbKey) _tmdbKey = await invoke<string>('get_tmdb_api_key');
+  return _tmdbKey;
+}
 
 interface MediaItem {
   imdb_id: string;
@@ -153,8 +160,6 @@ const FEATURED_TV = [
   { title: 'Prison Break', tmdbId: '2288', mediaType: 'tv' as const },
 ];
 
-const TMDB_KEY = '7c8599abf8bf4728727be7d446c108aa';
-
 export function MoviesTV() {
   const [tab, setTab] = useState<'movies' | 'tv'>('movies');
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -212,7 +217,7 @@ export function MoviesTV() {
       if (cancelled || !item.tmdb_id || posters[item.tmdb_id]) return;
       try {
         const mediaType = tab === 'movies' ? 'movie' : 'tv';
-        const resp = await fetch(`https://api.themoviedb.org/3/${mediaType}/${item.tmdb_id}?api_key=${TMDB_KEY}`);
+        const resp = await fetch(`https://api.themoviedb.org/3/${mediaType}/${item.tmdb_id}?api_key=${await getTmdbKey()}`);
         if (!resp.ok) return;
         const data = await resp.json();
         if (data.poster_path && !cancelled) {
@@ -243,16 +248,20 @@ export function MoviesTV() {
     }
     let cancelled = false;
     setLoadingSeasons(true);
-    fetch(`https://api.themoviedb.org/3/tv/${selectedItem.tmdb_id}?api_key=${TMDB_KEY}`)
-      .then(r => r.json())
-      .then(data => {
-        if (cancelled) return;
-        const s = (data.seasons || []).filter((s: TMDBSeason) => s.season_number > 0);
-        setSeasons(s);
-        if (s.length > 0) setSelectedSeason(s[0].season_number);
-        setLoadingSeasons(false);
-      })
-      .catch(() => { if (!cancelled) setLoadingSeasons(false); });
+    (async () => {
+      const key = await getTmdbKey();
+      if (cancelled) return;
+      fetch(`https://api.themoviedb.org/3/tv/${selectedItem.tmdb_id}?api_key=${key}`)
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return;
+          const s = (data.seasons || []).filter((s: TMDBSeason) => s.season_number > 0);
+          setSeasons(s);
+          if (s.length > 0) setSelectedSeason(s[0].season_number);
+          setLoadingSeasons(false);
+        })
+        .catch(() => { if (!cancelled) setLoadingSeasons(false); });
+    })();
     return () => { cancelled = true; };
   }, [selectedItem, tab]);
 
@@ -260,13 +269,17 @@ export function MoviesTV() {
     if (!selectedItem || tab === 'movies' || !selectedItem.tmdb_id || !selectedSeason) return;
     let cancelled = false;
     setEpisodes([]);
-    fetch(`https://api.themoviedb.org/3/tv/${selectedItem.tmdb_id}/season/${selectedSeason}?api_key=${TMDB_KEY}`)
-      .then(r => r.json())
-      .then(data => {
-        if (cancelled) return;
-        setEpisodes(data.episodes || []);
-      })
-      .catch(() => {});
+    (async () => {
+      const key = await getTmdbKey();
+      if (cancelled) return;
+      fetch(`https://api.themoviedb.org/3/tv/${selectedItem.tmdb_id}/season/${selectedSeason}?api_key=${key}`)
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return;
+          setEpisodes(data.episodes || []);
+        })
+        .catch(() => {});
+    })();
     return () => { cancelled = true; };
   }, [selectedItem, tab, selectedSeason]);
 

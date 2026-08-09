@@ -122,6 +122,47 @@ impl GameVaultDb {
             );
         ").map_err(|e| e.to_string())?;
 
+        // Scanner V2 migrations - safe to run multiple times
+        let migrations = [
+            "ALTER TABLE scanned_games ADD COLUMN working_dir TEXT",
+            "ALTER TABLE scanned_games ADD COLUMN launch_args TEXT",
+            "ALTER TABLE scanned_games ADD COLUMN confidence_reasons TEXT DEFAULT '[]'",
+            "ALTER TABLE scanned_games ADD COLUMN scan_source TEXT DEFAULT ''",
+            "ALTER TABLE scanned_games ADD COLUMN drive_letter TEXT DEFAULT ''",
+            "ALTER TABLE scanned_games ADD COLUMN metadata_status TEXT DEFAULT 'none'",
+            "ALTER TABLE scanned_games ADD COLUMN last_scan_id TEXT DEFAULT ''",
+        ];
+        for sql in &migrations {
+            let _ = conn.execute_batch(sql);
+        }
+
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS scanner_ignore_rules (
+                id TEXT PRIMARY KEY,
+                rule_type TEXT NOT NULL,
+                pattern TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS scanner_scan_history (
+                id TEXT PRIMARY KEY,
+                scan_type TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                duration_ms INTEGER DEFAULT 0,
+                games_found INTEGER DEFAULT 0,
+                candidates_found INTEGER DEFAULT 0,
+                directories_scanned INTEGER DEFAULT 0,
+                errors INTEGER DEFAULT 0,
+                locations TEXT DEFAULT '[]'
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_scanned_games_install_path ON scanned_games(install_path);
+            CREATE INDEX IF NOT EXISTS idx_scanned_games_launcher ON scanned_games(launcher);
+            CREATE INDEX IF NOT EXISTS idx_scanned_games_confidence ON scanned_games(scan_confidence);
+            CREATE INDEX IF NOT EXISTS idx_scanned_games_name ON scanned_games(name);
+        ").map_err(|e| e.to_string())?;
+
         Ok(Self { conn: Arc::new(Mutex::new(conn)) })
     }
 
@@ -393,12 +434,20 @@ impl GameVaultDb {
         Ok(())
     }
 
-    pub fn verify_password(&self, user_id: i64, password_hash: &str) -> Result<bool, String> {
+    pub fn verify_password(&self, user_id: i64, password: &str) -> Result<bool, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn.prepare("SELECT password_hash FROM users WHERE id = ?1").map_err(|e| e.to_string())?;
         let mut rows = stmt.query_map([user_id.to_string()], |row| row.get::<_, String>(0)).map_err(|e| e.to_string())?;
         match rows.next() {
-            Some(Ok(hash)) => Ok(hash == password_hash),
+            Some(Ok(hash)) => {
+                // Try argon2 verification first (new format)
+                if let Ok(parsed) = argon2::password_hash::PasswordHash::new(&hash) {
+                    use argon2::password_hash::PasswordVerifier;
+                    return Ok(argon2::Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok());
+                }
+                // Fallback: plain comparison for legacy SHA-256 hashes
+                Ok(hash == password)
+            }
             _ => Ok(false),
         }
     }
@@ -411,13 +460,15 @@ impl GameVaultDb {
         let now = chrono_now();
         for game in games {
             conn.execute(
-                "INSERT INTO scanned_games (id, name, platform, launcher, install_path, exe_path, app_id, version, cover_path, cover_local, icon_local, install_size, scan_confidence, is_installed, is_favorite, is_hidden, playtime_seconds, last_played, scanned_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                "INSERT INTO scanned_games (id, name, platform, launcher, install_path, exe_path, app_id, version, cover_path, cover_local, icon_local, install_size, scan_confidence, is_installed, is_favorite, is_hidden, playtime_seconds, last_played, scanned_at, working_dir, launch_args, confidence_reasons, scan_source, drive_letter, metadata_status, last_scan_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)",
                 params![
                     game.id, game.name, game.platform, game.launcher, game.install_path,
                     game.exe_path, game.app_id, game.version, game.cover_path, game.cover_local,
                     game.icon_local, game.install_size, game.scan_confidence, game.is_installed as i32,
                     game.is_favorite as i32, game.is_hidden as i32, game.playtime_seconds,
-                    game.last_played, now,
+                    game.last_played, now, game.working_dir, game.launch_args,
+                    game.confidence_reasons, game.scan_source, game.drive_letter,
+                    game.metadata_status, game.last_scan_id,
                 ],
             ).map_err(|e| e.to_string())?;
         }
@@ -427,7 +478,7 @@ impl GameVaultDb {
     pub fn get_scanned_games(&self) -> Result<Vec<ScannedGameRow>, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn.prepare(
-            "SELECT id, name, platform, launcher, install_path, exe_path, app_id, version, cover_path, cover_local, icon_local, install_size, scan_confidence, is_installed, is_favorite, is_hidden, playtime_seconds, last_played, scanned_at FROM scanned_games ORDER BY name"
+            "SELECT id, name, platform, launcher, install_path, exe_path, app_id, version, cover_path, cover_local, icon_local, install_size, scan_confidence, is_installed, is_favorite, is_hidden, playtime_seconds, last_played, scanned_at, working_dir, launch_args, confidence_reasons, scan_source, drive_letter, metadata_status, last_scan_id FROM scanned_games ORDER BY name"
         ).map_err(|e| e.to_string())?;
 
         let games = stmt.query_map([], |row| {
@@ -451,6 +502,13 @@ impl GameVaultDb {
                 playtime_seconds: row.get(16)?,
                 last_played: row.get(17)?,
                 scanned_at: row.get(18)?,
+                working_dir: row.get(19)?,
+                launch_args: row.get(20)?,
+                confidence_reasons: row.get(21).unwrap_or_default(),
+                scan_source: row.get(22).unwrap_or_default(),
+                drive_letter: row.get(23).unwrap_or_default(),
+                metadata_status: row.get(24).unwrap_or_default(),
+                last_scan_id: row.get(25).unwrap_or_default(),
             })
         }).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
@@ -481,6 +539,15 @@ impl GameVaultDb {
         conn.execute(
             "UPDATE scanned_games SET playtime_seconds = ?1, last_played = ?2 WHERE id = ?3",
             params![seconds, now, id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn approve_scanned_game(&self, id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE scanned_games SET scan_confidence = 1.0 WHERE id = ?1",
+            params![id],
         ).map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -573,6 +640,20 @@ pub struct ScannedGameRow {
     pub playtime_seconds: i64,
     pub last_played: Option<String>,
     pub scanned_at: String,
+    #[serde(default)]
+    pub working_dir: Option<String>,
+    #[serde(default)]
+    pub launch_args: Option<String>,
+    #[serde(default)]
+    pub confidence_reasons: String,
+    #[serde(default)]
+    pub scan_source: String,
+    #[serde(default)]
+    pub drive_letter: String,
+    #[serde(default)]
+    pub metadata_status: String,
+    #[serde(default)]
+    pub last_scan_id: String,
 }
 
 fn chrono_now() -> String {

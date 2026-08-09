@@ -1,6 +1,6 @@
 [package]
 name = "project-mvo-app"
-version = "0.2.12"
+version = "0.2.13"
 description = "Project MVO"
 authors = ["Project MVO"]
 edition = "2021"
@@ -8,6 +8,13 @@ edition = "2021"
 [lib]
 name = "project_mvo_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -24,12 +31,18 @@ sysinfo = "0.37.2"
 tokio = { version = "1", features = ["full"] }
 futures-util = "0.3"
 rusqlite = { version = "0.31", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"
 regex = "1"
 zip = "0.6"
 dirs = "5"
 sha2 = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+log = "0.4"
+nvml-wrapper = "0.10"
+urlencoding = "2"
+hex = "0.4"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
-tauri-plugin-updater = "2"
 tauri-plugin-process = "2"

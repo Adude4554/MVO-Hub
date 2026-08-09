@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GlassCard } from '../components/ui';
-import { RotateCcwIcon, DownloadIcon, UploadIcon, FolderOpenIcon, ShieldIcon, BrainIcon, LayoutDashboardIcon, Loader2, Trash2Icon, SettingsIcon, WrenchIcon, GaugeIcon, PowerIcon, MonitorIcon, HardDriveIcon, NetworkIcon, PuzzleIcon, ChevronDownIcon, ChevronRightIcon, RefreshCwIcon, UserIcon, LogOutIcon, CheckCircleIcon, AlertTriangle, CloudIcon } from 'lucide-react';
+import { RotateCcwIcon, DownloadIcon, UploadIcon, FolderOpenIcon, ShieldIcon, BrainIcon, LayoutDashboardIcon, Loader2, Trash2Icon, SettingsIcon, WrenchIcon, GaugeIcon, PowerIcon, MonitorIcon, HardDriveIcon, NetworkIcon, PuzzleIcon, ChevronDownIcon, ChevronRightIcon, RefreshCwIcon, UserIcon, LogOutIcon, CheckCircleIcon, AlertTriangle, CloudIcon, DatabaseIcon } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { setLocale, type Locale } from '../lib/i18n';
@@ -97,7 +97,7 @@ function PowerPlanSelector() {
 }
 
 function UpdatesTab() {
-  const { updateInfo, downloading: updateDownloading, progress, error: updateError, lastChecked, installUpdate, checkForUpdates } = useUpdater();
+  const { updateInfo, downloading: updateDownloading, progress, error: updateError, lastChecked, updaterState, installUpdate, checkForUpdates } = useUpdater();
   const [currentVersion, setCurrentVersion] = useState('');
   const [checking, setChecking] = useState(false);
 
@@ -165,6 +165,16 @@ function UpdatesTab() {
             <p className="text-xs text-red-400 break-all">{updateError}</p>
           </div>
         )}
+        {updateDownloading && updaterState && updaterState !== 'idle' && updaterState !== 'checking' && updaterState !== 'available' && updaterState !== 'completed' && updaterState !== 'error' && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-cyan-400/5 border border-cyan-400/20">
+            <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+            <p className="text-xs text-cyan-400">
+              {updaterState === 'downloading' && 'Downloading update...'}
+              {updaterState === 'verifying' && 'Verifying update integrity...'}
+              {updaterState === 'installing' && 'Installing update...'}
+            </p>
+          </div>
+        )}
       </GlassCard>
 
       {/* Update available */}
@@ -193,7 +203,9 @@ function UpdatesTab() {
           {updateDownloading && progress && (
             <div className="mb-3 space-y-1">
               <div className="flex justify-between text-xs">
-                <span className="text-mvo-textDim">{progress.status === 'downloading' ? 'Downloading...' : 'Installing...'}</span>
+                <span className="text-mvo-textDim">
+                  {progress.status === 'downloading' ? 'Downloading...' : progress.status === 'installing' ? 'Installing...' : 'Verifying...'}
+                </span>
                 <span className="text-cyan-400 font-mono">{progress.percent || 0}%</span>
               </div>
               <div className="h-1.5 bg-mvo-bg/50 rounded-full overflow-hidden">
@@ -204,7 +216,7 @@ function UpdatesTab() {
 
           <button onClick={installUpdate} disabled={updateDownloading} className="btn-primary text-sm flex items-center gap-2 w-full justify-center">
             {updateDownloading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> {progress?.status === 'installing' ? 'Installing...' : 'Downloading...'}</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> {updaterState === 'verifying' ? 'Verifying...' : progress?.status === 'installing' ? 'Installing...' : 'Downloading...'}</>
             ) : (
               <><DownloadIcon className="w-4 h-4" /> Download & Install</>
             )}
@@ -427,12 +439,128 @@ function CloudSyncTab({ settings, update }: { settings: any; update: (patch: any
   );
 }
 
+interface ScannerSettings {
+  scan_paths: string[];
+  auto_scan: boolean;
+  enable_metadata: boolean;
+  cache_retention_days: number;
+}
+
+function ScannerSettingsTab() {
+  const [settings, setSettings] = useState<ScannerSettings>({ scan_paths: [], auto_scan: true, enable_metadata: true, cache_retention_days: 7 });
+  const [saving, setSaving] = useState(false);
+  const [newPath, setNewPath] = useState('');
+
+  useEffect(() => {
+    invoke<ScannerSettings>('get_scanner_settings').then(setSettings).catch(() => {});
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await invoke('save_scanner_settings', { settings });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addPath = () => {
+    if (newPath && !settings.scan_paths.includes(newPath)) {
+      setSettings(s => ({ ...s, scan_paths: [...s.scan_paths, newPath] }));
+      setNewPath('');
+    }
+  };
+
+  const removePath = (p: string) => {
+    setSettings(s => ({ ...s, scan_paths: s.scan_paths.filter(x => x !== p) }));
+  };
+
+  const clearCache = async () => {
+    try {
+      await invoke('clear_scan_cache');
+    } catch (e) {
+      console.error('Failed to clear cache:', e);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <AdvancedSection title="Scanner Settings" icon={<DatabaseIcon className="w-5 h-5 text-cyan-400" />}>
+        <div className="space-y-4">
+          <div>
+            <p className="font-medium text-sm mb-2">Scan Paths</p>
+            {settings.scan_paths.map(p => (
+              <div key={p} className="flex items-center gap-2 py-1">
+                <span className="text-sm text-mvo-text flex-1 truncate">{p}</span>
+                <button onClick={() => removePath(p)} className="text-red-400 hover:text-red-300"><Trash2Icon className="w-4 h-4" /></button>
+              </div>
+            ))}
+            <div className="flex gap-2 mt-2">
+              <input
+                type="text"
+                value={newPath}
+                onChange={e => setNewPath(e.target.value)}
+                placeholder="C:\Games"
+                className="flex-1 bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text text-sm px-3 py-2 rounded-xl"
+              />
+              <button onClick={addPath} className="btn-secondary px-3 py-2 text-sm">Add</button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="font-medium text-sm">Auto-scan on startup</p>
+              <p className="text-xs text-mvo-textDim">Automatically scan for games when app launches</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" checked={settings.auto_scan} onChange={e => setSettings(s => ({ ...s, auto_scan: e.target.checked }))} className="sr-only peer" />
+              <div className="w-11 h-6 bg-mvo-border/50 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-400/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-400"></div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="font-medium text-sm">Enable metadata resolution</p>
+              <p className="text-xs text-mvo-textDim">Fetch game info from Steam Store API</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" checked={settings.enable_metadata} onChange={e => setSettings(s => ({ ...s, enable_metadata: e.target.checked }))} className="sr-only peer" />
+              <div className="w-11 h-6 bg-mvo-border/50 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-400/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-400"></div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="font-medium text-sm">Cache retention</p>
+              <p className="text-xs text-mvo-textDim">How long to keep scan cache</p>
+            </div>
+            <select
+              value={settings.cache_retention_days}
+              onChange={e => setSettings(s => ({ ...s, cache_retention_days: Number(e.target.value) }))}
+              className="bg-mvo-panelHover/50 border border-mvo-border/50 text-mvo-text text-sm px-3 py-2 rounded-xl"
+            >
+              <option value={1}>1 day</option>
+              <option value={7}>7 days</option>
+              <option value={30}>30 days</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-3 border-t border-mvo-border/30">
+            <button onClick={clearCache} className="btn-secondary text-sm"><Trash2Icon className="w-4 h-4 mr-2" /> Clear Scan Cache</button>
+            <button onClick={save} className="btn-primary text-sm" disabled={saving}>{saving ? 'Saving...' : 'Save Scanner Settings'}</button>
+          </div>
+        </div>
+      </AdvancedSection>
+    </div>
+  );
+}
+
 export function Settings({ settings: parentSettings, onSettingsChange, user, defaultTab }: { settings?: any; onSettingsChange?: (s: any) => void; user?: any; defaultTab?: string } = {}) {
   useLocale();
   const [settings, setSettings] = useState<any>(parentSettings || {});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'advanced' | 'updates' | 'account'>((defaultTab as any) || 'general');
+  const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'sync' | 'advanced' | 'updates' | 'scanner' | 'account'>((defaultTab as any) || 'general');
 
   useEffect(() => {
     if (parentSettings) setSettings(parentSettings);
@@ -499,6 +627,7 @@ export function Settings({ settings: parentSettings, onSettingsChange, user, def
     { id: 'sync', label: 'Cloud Sync', icon: CloudIcon },
     { id: 'advanced', label: t('settings.advanced'), icon: ShieldIcon },
     { id: 'updates', label: 'Updates', icon: RefreshCwIcon },
+    { id: 'scanner', label: 'Scanner', icon: DatabaseIcon },
     { id: 'account', label: 'Account', icon: UserIcon },
   ];
 
@@ -554,7 +683,7 @@ export function Settings({ settings: parentSettings, onSettingsChange, user, def
                 <label htmlFor="notifications" className="text-sm text-mvo-text">{t('settings.enableNotifications')}</label>
               </div>
               <div className="flex items-center gap-3">
-                <input type="checkbox" id="auto_update" checked={settings.auto_update} onChange={e => update({auto_update: e.target.checked})} className="w-4 h-4 accent-cyan-400 rounded" />
+                <input type="checkbox" id="auto_update" checked={settings.auto_update} onChange={e => { const v = e.target.checked; update({auto_update: v}); invoke('save_settings', { settings: {...settings, auto_update: v} }).catch(console.error); }} className="w-4 h-4 accent-cyan-400 rounded" />
                 <label htmlFor="auto_update" className="text-sm text-mvo-text">{t('settings.autoCheckUpdates')}</label>
               </div>
             </div>
@@ -905,6 +1034,10 @@ export function Settings({ settings: parentSettings, onSettingsChange, user, def
 
       {activeTab === 'updates' && (
         <UpdatesTab />
+      )}
+
+      {activeTab === 'scanner' && (
+        <ScannerSettingsTab />
       )}
 
       {activeTab === 'account' && (

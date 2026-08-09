@@ -143,9 +143,11 @@ export interface MetricCardProps {
   icon?: React.ReactNode;
   color?: 'cyan' | 'purple' | 'green' | 'amber' | 'pink';
   className?: string;
+  progress?: number;
+  subtitle?: string;
 }
 
-export function MetricCard({ label, value, unit, trend, trendValue, icon, color = 'cyan', className = '' }: MetricCardProps) {
+export function MetricCard({ label, value, unit, trend, trendValue, icon, color = 'cyan', className = '', progress, subtitle }: MetricCardProps) {
   const colorMap = {
     cyan: { bg: 'bg-cyan-400/10', border: 'border-cyan-400/20', text: 'text-cyan-400', glow: 'bg-cyan-400' },
     purple: { bg: 'bg-purple-400/10', border: 'border-purple-400/20', text: 'text-purple-400', glow: 'bg-purple-400' },
@@ -280,22 +282,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={className}
+        className={`group ${className}`}
         style={{
           ...baseStyles,
           ...sizeStyles[size],
           ...variantStyles[variant],
           ...style,
-        }}
-        onMouseEnter={(e) => {
-          if (!disabled && !loading) {
-            Object.assign(e.currentTarget.style, hoverStyles[variant]);
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!disabled && !loading) {
-            Object.assign(e.currentTarget.style, variantStyles[variant]);
-          }
         }}
         disabled={disabled || loading}
         {...props}

@@ -14,6 +14,7 @@ import { GameLibrary } from './pages/GameLibrary';
 import { GameVault } from './pages/GameVault';
 import { Optimizer } from './pages/Optimizer';
 import { Performance } from './pages/Performance';
+import { Hardware } from './pages/Hardware';
 import { SystemBoost } from './pages/SystemBoost';
 import { AITools } from './pages/AITools';
 import { Overlay } from './pages/Overlay';
@@ -30,7 +31,7 @@ import { MoviesTV } from './pages/MoviesTV';
 import { WindowResizeHandles } from './components/WindowResizeHandles';
 import { GlobalSearch } from './components/GlobalSearch';
 import { usePerformance } from './hooks/usePerformance';
-import { useHardware } from './hooks/useHardware';
+import { useHardwareSensors } from './hooks/useHardwareSensors';
 import { useGames } from './hooks/useGames';
 import { useSettings } from './hooks/useSettings';
 import { useAI } from './hooks/useAI';
@@ -42,6 +43,7 @@ import { useUpdater } from './hooks/useUpdater';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { initLocale } from './lib/i18n';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { availablePages, PageId } from './config/pages';
 import { DEFAULT_HIDDEN_PAGES } from './config/pages';
 
@@ -92,13 +94,13 @@ function App() {
   }, [settings.settings.theme]);
 
   const performance = usePerformance();
-  const hardware = useHardware();
+  const hardwareSensors = useHardwareSensors();
   const games = useGames();
   const ai = useAI();
   const overlay = useOverlay();
   const streaming = useStreaming();
   const system = useSystem();
-  const { updateInfo, downloading, progress, error, showModal, checkForUpdates, installUpdate, dismiss, openModal, closeModal } = useUpdater();
+  const { updateInfo, downloading, progress, error, showModal, verificationProgress, checkForUpdates, installUpdate, dismiss, openModal, closeModal } = useUpdater();
 
   const handlePageChange = useCallback((page: PageId) => {
     play('pageSwitch');
@@ -122,6 +124,13 @@ function App() {
     invoke('start_performance_engine').catch(console.error);
   }, []);
 
+  useEffect(() => {
+    const unlisten = listen('quick-scan-requested', () => {
+      handlePageChange('gamelibrary');
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, [handlePageChange]);
+
   const PageComponent = useMemo(() => {
 const pageMap: Record<string, React.FC<any>> = {
   dashboard: Dashboard,
@@ -129,6 +138,7 @@ const pageMap: Record<string, React.FC<any>> = {
   gamevault: GameVault,
   optimizer: Optimizer,
   performance: Performance,
+  hardware: Hardware,
   systemboost: SystemBoost,
   aitools: AITools,
   overlay: Overlay,
@@ -205,7 +215,7 @@ const pageMap: Record<string, React.FC<any>> = {
           <div key={activePage} className={`animate-in ${activePage === 'moviestv' ? 'h-full overflow-y-auto' : ''}`}>
             <PageComponent
               performance={performance}
-              hardware={hardware}
+              hardwareSensors={hardwareSensors}
               games={games}
               ai={ai}
               overlay={overlay}
@@ -228,7 +238,7 @@ const pageMap: Record<string, React.FC<any>> = {
           isOpen={rightPanelOpen}
           onClose={() => { play('click'); setRightPanelOpen(false); }}
           performance={performance}
-          hardware={hardware}
+          hardwareSensors={hardwareSensors}
           games={games}
           overlay={overlay}
           streaming={streaming}
@@ -237,7 +247,7 @@ const pageMap: Record<string, React.FC<any>> = {
 
       <BottomBar
         performance={performance}
-        hardware={hardware}
+        hardwareSensors={hardwareSensors}
         windowState={windowState}
       />
       <DownloadBar />
@@ -248,6 +258,7 @@ const pageMap: Record<string, React.FC<any>> = {
           update={updateInfo}
           progress={progress}
           downloading={downloading}
+          verificationProgress={verificationProgress}
           error={error}
           onUpdate={installUpdate}
           onClose={closeModal}

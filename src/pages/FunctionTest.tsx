@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { GlassCard } from '../components/ui';
+import { invoke } from '@tauri-apps/api/core';
 
 interface TestItem {
   category: string;
@@ -20,29 +21,29 @@ export function FunctionTest() {
     { category: 'System', name: 'GPU Info (WMI)', cmd: 'get_gpu_info' },
     { category: 'Gaming', name: 'Steam Scan', cmd: 'scan_steam_games' },
     { category: 'Gaming', name: 'Launch Steam Game', cmd: 'launch_steam_game' },
+    { category: 'Gaming', name: 'Steam Status', cmd: 'get_steam_status' },
     { category: 'Optimizer', name: 'Current Power Plan', cmd: 'get_current_power_plan' },
-    { category: 'Optimizer', name: 'Game Mode Settings', cmd: 'open_game_mode_settings' },
     { category: 'Optimizer', name: 'Flush DNS', cmd: 'flush_dns' },
     { category: 'Optimizer', name: 'Disk Cleanup', cmd: 'open_disk_cleanup' },
     { category: 'Optimizer', name: 'Task Manager', cmd: 'open_task_manager' },
-    { category: 'AI', name: 'Ollama Test', cmd: 'test_ollama_connection' },
     { category: 'AI', name: 'AI Providers', cmd: 'get_ai_providers' },
     { category: 'Streaming', name: 'Detect Streaming Tools', cmd: 'detect_streaming_tools' },
     { category: 'Streaming', name: 'Launch OBS', cmd: 'launch_obs_studio' },
-    { category: 'Files', name: 'Known Folders', cmd: 'get_known_folders' },
-    { category: 'Files', name: 'Web Shortcuts', cmd: 'get_web_shortcuts' },
-    { category: 'Diagnostics', name: 'Diagnostic Summary', cmd: 'get_diagnostic_summary' },
+    { category: 'System', name: 'Overlay Status', cmd: 'get_overlay_status' },
+    { category: 'System', name: 'Check for Updates', cmd: 'check_for_updates' },
+    { category: 'Settings', name: 'Load MVO Settings', cmd: 'load_mvo_settings' },
+    { category: 'Settings', name: 'Load Settings', cmd: 'load_settings' },
   ];
 
   const runTests = async () => {
     setRunning(true);
+    setTests([]);
     for (const test of testCommands) {
       try {
-        await new Promise(r => setTimeout(r, 100));
-        const result = { category: test.category, name: test.name, status: 'ok' as const, message: 'Command available' };
-        setTests(prev => [...prev, result]);
+        const result = await invoke(test.cmd);
+        setTests(prev => [...prev, { category: test.category, name: test.name, status: 'ok', message: String(result) }]);
       } catch (e: any) {
-        setTests(prev => [...prev, { category: test.category, name: test.name, status: 'fail', message: e.message }]);
+        setTests(prev => [...prev, { category: test.category, name: test.name, status: 'fail', message: e.message || 'Unknown error' }]);
       }
     }
     setRunning(false);
@@ -94,10 +95,16 @@ export function FunctionTest() {
                 <div className="flex items-center gap-3 font-mono text-xs">
                   <span className="w-40 text-mvo-textDim">{test.category}</span>
                   <span className="w-56 text-mvo-text">{test.name}</span>
-                  <span className="w-20 text-center text-green-400">
-                    <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  <span className={`w-20 text-center ${test.status === 'ok' ? 'text-green-400' : test.status === 'warn' ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {test.status === 'ok' ? (
+                      <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    ) : test.status === 'warn' ? (
+                      <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    )}
                   </span>
-                  <span className="text-mvo-textDim flex-1">Command available</span>
+                  <span className="text-mvo-textDim flex-1">{test.message}</span>
                 </div>
               </div>
             ))

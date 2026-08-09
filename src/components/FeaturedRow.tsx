@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Play, Loader2 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
-const TMDB_KEY = '7c8599abf8bf4728727be7d446c108aa';
+let _tmdbKey = '';
+async function getTmdbKey() {
+  if (!_tmdbKey) _tmdbKey = await invoke<string>('get_tmdb_api_key');
+  return _tmdbKey;
+}
 
 interface FeaturedItem {
   title: string;
@@ -29,7 +34,8 @@ export function FeaturedRow({ items, onSelect }: FeaturedProps) {
     const fetchOne = async (item: FeaturedItem) => {
       if (cancelled) return;
       try {
-        const resp = await fetch(`https://api.themoviedb.org/3/${item.mediaType}/${item.tmdbId}?api_key=${TMDB_KEY}`);
+        const key = await getTmdbKey();
+        const resp = await fetch(`https://api.themoviedb.org/3/${item.mediaType}/${item.tmdbId}?api_key=${key}`);
         if (!resp.ok) return;
         const data = await resp.json();
         if (data.poster_path && !cancelled) {

@@ -20,13 +20,17 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
   useEffect(() => {
     const unlisten = listen<any>('update-progress', (event) => {
       const p = event.payload;
-      if (p.status === 'downloading') {
+      if (p.state === 'verifying') {
+        setStatus('downloading');
+        setProgressText('Verifying update integrity...');
+        setProgress(100);
+      } else if (p.status === 'downloading') {
         setStatus('downloading');
         setProgress(p.percent || 0);
         setDownloaded(p.downloaded || 0);
         setTotal(p.total || 0);
         setProgressText('Downloading update...');
-      } else if (p.status === 'installing') {
+      } else if (p.status === 'installing' || p.state === 'installing') {
         setStatus('installing');
         setProgress(100);
         setProgressText('Installing update...');
@@ -57,8 +61,10 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
   const retry = () => {
     setError('');
     setStatus('downloading');
+    setProgress(0);
     setProgressText('Retrying download...');
     started.current = false;
+    started.current = true;
     const run = async () => {
       try {
         await invoke('download_and_install_update');

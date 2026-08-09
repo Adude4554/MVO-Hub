@@ -1,5 +1,6 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { ResizeDirection } from '@tauri-apps/api/window';
+
+type ResizeDirection = 'North' | 'South' | 'West' | 'East' | 'NorthWest' | 'NorthEast' | 'SouthWest' | 'SouthEast';
 
 const EDGE = 4;
 

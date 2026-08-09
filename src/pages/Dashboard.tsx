@@ -14,15 +14,73 @@ interface NewsItem {
   icon?: string;
 }
 
-export function Dashboard({ performance, hardware, games, onNavigate, settings, onSettingsChange, updateInfo, onUpdateCheck, onUpdateDismiss, onUpdateNow }: any) {
+const CircularGauge = ({ percent, color, label, sub, size = 120, strokeWidth = 10 }: {
+  percent: number; color: string; label: string; sub?: string; size?: number; strokeWidth?: number;
+}) => {
+  const r = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (Math.min(percent, 100) / 100) * circ;
+  return (
+    <GlassCard className="h-full flex flex-col items-center justify-center p-4">
+      <div className="relative">
+        <svg width={size} height={size} className="transform -rotate-90">
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="currentColor" strokeWidth={strokeWidth} className="text-mvo-border/30" />
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+            className="transition-all duration-700 ease-out" style={{ filter: `drop-shadow(0 0 8px ${color}50)` }} />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-display text-2xl font-bold text-mvo-text">{percent.toFixed(1)}%</span>
+        </div>
+      </div>
+      <p className="text-sm font-medium text-mvo-text mt-2">{label}</p>
+      {sub && <p className="text-xs text-mvo-textDim mt-0.5">{sub}</p>}
+    </GlassCard>
+  );
+};
+
+const DetailRow = ({ label, value, color }: { label: string; value: string; color?: string }) => (
+  <div className="flex items-center justify-between py-1.5 border-b border-mvo-border/20 last:border-0">
+    <span className="text-xs text-mvo-textDim">{label}</span>
+    <span className={`text-sm font-medium ${color || 'text-mvo-text'}`}>{value}</span>
+  </div>
+);
+
+const ProgressBar = ({ label, used, total, color }: { label: string; used: number; total: number; color: string }) => {
+  const pct = total > 0 ? (used / total) * 100 : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className="text-mvo-textDim">{label}</span>
+        <span className="text-mvo-textDim">{pct.toFixed(0)}%</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-mvo-textDim w-16 text-right">{formatBytes(used)} used</span>
+        <div className="flex-1 h-2 bg-mvo-bg rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+        </div>
+        <span className="text-xs text-mvo-textDim w-16">{formatBytes(total)} total</span>
+      </div>
+    </div>
+  );
+};
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(1)} TB`;
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  return `${(bytes / 1e6).toFixed(1)} MB`;
+}
+
+export function Dashboard({ performance, hardwareSensors, games, onNavigate, settings, onSettingsChange, updateInfo, onUpdateCheck, onUpdateDismiss, onUpdateNow }: any) {
   useLocale();
   const snap = performance?.snapshot;
-  const hw = hardware?.snapshot;
 
-  const cpuPercent = snap?.cpu_usage?.toFixed(1) || '0';
-  const memPercent = snap && snap.total_memory > 0 ? ((snap.used_memory / snap.total_memory) * 100).toFixed(1) : '0';
+  // Use real hardware sensor data
+  const hs = hardwareSensors;
+  const cpuPercent = hs?.cpuUsage?.toFixed(1) || snap?.cpu_usage?.toFixed(1) || '0';
+  const memPercent = hs?.memTotal > 0 ? ((hs.memUsed / hs.memTotal) * 100).toFixed(1) : snap && snap.total_memory > 0 ? ((snap.used_memory / snap.total_memory) * 100).toFixed(1) : '0';
   const diskPercent = snap && snap.total_storage > 0 ? ((snap.used_storage / snap.total_storage) * 100).toFixed(1) : '0';
-  const gpuPercent = hw?.gpu?.usage || 0;
+  const gpuPercent = hs?.gpuUsage?.toFixed(1) || '0';
 
   const recentGames = (games?.allGames || []).slice(0, 6);
   const [recentlyLaunched, setRecentlyLaunched] = useState<any[]>([]);
@@ -119,103 +177,14 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
     setTimeout(() => setActionToast(null), 3000);
   };
 
-  const CircularGauge = ({ percent, color, label, sub, size = 120, strokeWidth = 10 }: {
-    percent: number; color: string; label: string; sub?: string; size?: number; strokeWidth?: number;
-  }) => {
-    const r = (size - strokeWidth) / 2;
-    const circ = 2 * Math.PI * r;
-    const offset = circ - (Math.min(percent, 100) / 100) * circ;
-    return (
-      <GlassCard className="h-full flex flex-col items-center justify-center p-4">
-        <div className="relative">
-          <svg width={size} height={size} className="transform -rotate-90">
-            <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="currentColor" strokeWidth={strokeWidth} className="text-mvo-border/30" />
-            <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
-              strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-              className="transition-all duration-700 ease-out" style={{ filter: `drop-shadow(0 0 8px ${color}50)` }} />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-display text-2xl font-bold text-mvo-text">{percent.toFixed(1)}%</span>
-          </div>
-        </div>
-        <p className="text-sm font-medium text-mvo-text mt-2">{label}</p>
-        {sub && <p className="text-xs text-mvo-textDim mt-0.5">{sub}</p>}
-      </GlassCard>
-    );
-  };
-
-  const DetailRow = ({ label, value, color }: { label: string; value: string; color?: string }) => (
-    <div className="flex items-center justify-between py-1.5 border-b border-mvo-border/20 last:border-0">
-      <span className="text-xs text-mvo-textDim">{label}</span>
-      <span className={`text-sm font-medium ${color || 'text-mvo-text'}`}>{value}</span>
-    </div>
-  );
-
-  const ProgressBar = ({ label, used, total, color }: { label: string; used: number; total: number; color: string }) => {
-    const pct = total > 0 ? (used / total) * 100 : 0;
-    return (
-      <div className="space-y-1">
-        <div className="flex justify-between text-xs">
-          <span className="text-mvo-textDim">{label}</span>
-          <span className="text-mvo-textDim">{pct.toFixed(0)}%</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-mvo-textDim w-16 text-right">{formatBytes(used)} used</span>
-          <div className="flex-1 h-2 bg-mvo-bg rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
-          </div>
-          <span className="text-xs text-mvo-textDim w-16">{formatBytes(total)} total</span>
-        </div>
-      </div>
-    );
-  };
-
-  const SystemHealthGauge = () => {
-    const health = parseFloat(cpuPercent) < 70 && parseFloat(memPercent) < 85 ? 95 : parseFloat(cpuPercent) < 85 ? 75 : 50;
-    const status = health >= 90 ? 'Excellent' : health >= 70 ? 'Good' : 'Fair';
-    const statusColor = health >= 90 ? '#22c55e' : health >= 70 ? '#f59e0b' : '#ef4444';
-    const r = (120 - 10) / 2;
-    const circ = 2 * Math.PI * r;
-    const offset = circ - (health / 100) * circ;
-    return (
-      <GlassCard className="h-full flex flex-col items-center justify-center p-4">
-        <div className="relative">
-          <svg width={120} height={120} className="transform -rotate-90">
-            <circle cx={60} cy={60} r={r} fill="none" stroke="currentColor" strokeWidth={10} className="text-mvo-border/30" />
-            <circle cx={60} cy={60} r={r} fill="none" stroke={statusColor} strokeWidth={10}
-              strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-              className="transition-all duration-700 ease-out" style={{ filter: `drop-shadow(0 0 8px ${statusColor}50)` }} />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Activity className="w-8 h-8" style={{ color: statusColor }} />
-          </div>
-        </div>
-        <p className="text-sm font-medium text-mvo-text mt-2">{status}</p>
-        <p className="text-xs text-mvo-textDim">All systems normal</p>
-      </GlassCard>
-    );
-  };
-
   return (
-    <div className="space-y-4 animate-in">
+    <div className="space-y-6 animate-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-            {t('dashboard.title')}
-          </h1>
-          <p className="text-mvo-textDim text-sm mt-0.5">{t('dashboard.overview')}</p>
+          <h1 className="font-display text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">{t('dashboard.title')}</h1>
+          <p className="text-mvo-textDim mt-1">{t('dashboard.subtitle')}</p>
         </div>
       </div>
-
-      {/* Update banner */}
-      {updateInfo?.available && !updateInfo?.force && (
-        <UpdateBanner
-          update={updateInfo}
-          onUpdate={onUpdateNow}
-          onDismiss={onUpdateDismiss}
-          onViewChanges={() => onNavigate && onNavigate('settings')}
-        />
-      )}
 
       {actionToast && (
         <div className={`flex items-center gap-2 p-3 rounded-xl text-sm ${actionToast.ok ? 'bg-green-400/10 text-green-400 border border-green-400/30' : 'bg-red-400/10 text-red-400 border border-red-400/30'}`}>
@@ -224,37 +193,36 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
       )}
 
       {/* Row 1: Usage Gauges */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <CircularGauge
           percent={parseFloat(cpuPercent)}
           color="#00d4ff"
           label={t('dashboard.cpuUsage')}
-          sub={`${hw?.cpu_cores || '?'} cores`}
+          sub={hs?.cpuDevice?.name || `${hs?.cpuCores?.physical || '?'} cores`}
         />
         <CircularGauge
           percent={parseFloat(memPercent)}
           color="#c084fc"
           label={t('dashboard.memory')}
-          sub={`${formatBytes(snap?.used_memory || 0)} / ${formatBytes(snap?.total_memory || 0)}`}
+          sub={hs?.memTotal > 0 ? `${(hs.memUsed / 1e9).toFixed(1)} / ${(hs.memTotal / 1e9).toFixed(1)} GB` : `${formatBytes(snap?.used_memory || 0)} / ${formatBytes(snap?.total_memory || 0)}`}
         />
         <CircularGauge
-          percent={gpuPercent}
+          percent={parseFloat(gpuPercent)}
           color="#22c55e"
           label="GPU Usage"
-          sub={hw?.gpu?.name || 'Not detected'}
+          sub={hs?.gpuDevice?.name || 'Not detected'}
         />
-        <SystemHealthGauge />
       </div>
 
       {/* Row 2: Detail Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <GlassCard className="p-4">
           <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <Monitor className="w-4 h-4 text-green-400" /> GPU Usage{nvidiaGpu ? ' (NVIDIA)' : ''}
+            <Monitor className="w-4 h-4 text-green-400" /> GPU Usage{(nvidiaGpu || hs?.gpuDevice) ? ' (NVIDIA)' : ''}
           </h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-mvo-textDim truncate">{nvidiaGpu?.name || hw?.gpu?.name || 'Not detected'}</span>
+              <span className="text-sm text-mvo-textDim truncate">{nvidiaGpu?.name || hs?.gpuDevice?.name || 'Not detected'}</span>
               <span className="text-lg font-bold text-green-400">{gpuPercent}%</span>
             </div>
             <div className="h-3 bg-mvo-bg rounded-full overflow-hidden">
@@ -270,10 +238,12 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
               })}
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex justify-between"><span className="text-mvo-textDim">VRAM</span><span className="text-mvo-text">{nvidiaGpu?.memory_total ? `${nvidiaGpu.memory_total} MB` : hw?.gpu?.memory_total ? `${(hw.gpu.memory_total / 1e9).toFixed(1)} GB` : 'N/A'}</span></div>
-              <div className="flex justify-between"><span className="text-mvo-textDim">Temp</span><span className={`${(nvidiaGpu?.temperature > 80 || hw?.gpu?.temperature > 80) ? 'text-red-400' : 'text-green-400'}`}>{nvidiaGpu?.temperature ? `${nvidiaGpu.temperature}°C` : hw?.gpu?.temperature ? `${hw.gpu.temperature}°C` : 'N/A'}</span></div>
-              <div className="flex justify-between"><span className="text-mvo-textDim">Driver</span><span className="text-mvo-text">{nvidiaGpu?.driver_version || hw?.gpu?.driver_version || 'N/A'}</span></div>
-              <div className="flex justify-between"><span className="text-mvo-textDim">Power</span><span className="text-mvo-text">{nvidiaGpu?.power_draw ? `${nvidiaGpu.power_draw}W` : 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-mvo-textDim">VRAM</span><span className="text-mvo-text">{nvidiaGpu?.memory_total ? `${nvidiaGpu.memory_total} MB` : hs?.gpuVramTotal ? `${(hs.gpuVramTotal / 1e9).toFixed(1)} GB` : 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-mvo-textDim">Temp</span><span className={`${(nvidiaGpu?.temperature > 80 || hs?.gpuTemperature > 80) ? 'text-red-400' : 'text-green-400'}`}>{nvidiaGpu?.temperature ? `${nvidiaGpu.temperature}°C` : hs?.gpuTemperature ? `${hs.gpuTemperature.toFixed(0)}°C` : 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-mvo-textDim">Driver</span><span className="text-mvo-text">{nvidiaGpu?.driver_version || hs?.gpuDevice?.driverVersion || 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-mvo-textDim">Power</span><span className="text-mvo-text">{hs?.gpuPower ? `${hs.gpuPower.toFixed(0)}W` : nvidiaGpu?.power_draw ? `${nvidiaGpu.power_draw}W` : 'N/A'}</span></div>
+              {hs?.gpuFan > 0 && <div className="flex justify-between"><span className="text-mvo-textDim">Fan</span><span className="text-mvo-text">{hs.gpuFan.toFixed(0)}%</span></div>}
+              {hs?.gpuClockGraphics > 0 && <div className="flex justify-between"><span className="text-mvo-textDim">Clock</span><span className="text-mvo-text">{hs.gpuClockGraphics.toFixed(0)} MHz</span></div>}
             </div>
           </div>
         </GlassCard>
@@ -283,16 +253,13 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
             <HardDrive className="w-4 h-4 text-green-400" /> Disk Usage
           </h3>
           <div className="space-y-3">
-            {hw?.disks?.slice(0, 4).map((d: any, i: number) => (
-              <ProgressBar
-                key={i}
-                label={`${d.name || d.mount_point} (${d.mount_point})`}
-                used={d.used_bytes}
-                total={d.total_bytes}
-                color={d.used_bytes / d.total_bytes > 0.9 ? '#ef4444' : d.used_bytes / d.total_bytes > 0.7 ? '#f59e0b' : '#22c55e'}
-              />
+            {hs?.storageDevices?.slice(0, 4).map((d: any, i: number) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-mvo-textDim">{d.name}</span>
+                <span className="text-mvo-text">{d.model || d.id}</span>
+              </div>
             ))}
-            {(!hw?.disks || hw.disks.length === 0) && (
+            {(!hs?.storageDevices || hs.storageDevices.length === 0) && (
               <ProgressBar label="OS (C:)" used={snap?.used_storage || 0} total={snap?.total_storage || 0} color="#22c55e" />
             )}
             <div className="flex items-center justify-between pt-2 border-t border-mvo-border/30">
@@ -332,7 +299,7 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
           </h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-mvo-textDim">{hw?.cpu_name || 'Unknown CPU'}</span>
+              <span className="text-sm text-mvo-textDim">{hs?.cpuDevice?.name || 'Unknown CPU'}</span>
               <span className="text-lg font-bold text-cyan-400">{cpuPercent}%</span>
             </div>
             <div className="h-3 bg-mvo-bg rounded-full overflow-hidden">
@@ -345,15 +312,15 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
               ))}
             </div>
             <div className="flex items-center justify-between text-xs text-mvo-textDim">
-              <span>{hw?.cpu_cores || '?'} cores / {hw?.cpu_threads || '?'} threads</span>
-              <span>{snap?.cpu_usage ? `${Math.round(35 + snap.cpu_usage * 0.5)}°C` : 'N/A'}</span>
+              <span>{hs?.cpuCoresPhysical || '?'} physical / {hs?.cpuCoresLogical || '?'} logical</span>
+              <span>{hs?.cpuFrequency ? `${hs.cpuFrequency.toFixed(0)} MHz` : 'N/A'}</span>
             </div>
           </div>
         </GlassCard>
       </div>
 
       {/* Row 3: Quick Actions | Your Games | System Shortcuts + News */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Quick Actions + Game Stats - left column */}
         <GlassCard className="p-4 row-span-2">
           <div className="flex items-center gap-2 mb-4">
@@ -440,7 +407,7 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
                 Game Library <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {recentlyLaunched.slice(0, 6).map((item: any, i: number) => (
                 <GlassCard key={i} className="group p-3 stat-card">
                   <div className="flex items-center gap-3">
@@ -531,10 +498,4 @@ export function Dashboard({ performance, hardware, games, onNavigate, settings, 
       </div>
     </div>
   );
-}
-
-function formatBytes(bytes: number) {
-  if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(1)} TB`;
-  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
-  return `${(bytes / 1e6).toFixed(1)} MB`;
 }

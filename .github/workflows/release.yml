@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run cargo test
+        run: cargo test
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Tauri app
+        run: npx tauri build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find NSIS installer
+        id: find_installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis/" -Filter "*.exe" | Select-Object -First 1
+          if (-not $installer) {
+            Write-Error "No NSIS installer found"
+            exit 1
+          }
+          Write-Host "Found installer: $($installer.FullName)"
+          echo "installer_path=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+          echo "installer_name=$($installer.Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Calculate SHA-256 hash
+        id: hash
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Path "${{ steps.find_installer.outputs.installer_path }}" -Algorithm SHA256).Hash.ToLower()
+          Write-Host "SHA-256: $hash"
+          echo "sha256=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Get file size
+        id: filesize
+        shell: pwsh
+        run: |
+          $size = (Get-Item "${{ steps.find_installer.outputs.installer_path }}").Length
+          Write-Host "File size: $size"
+          echo "size=$size" >> $env:GITHUB_OUTPUT
+
+      - name: Get version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          Write-Host "Version: $version"
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Generate latest.json
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $sha256 = "${{ steps.hash.outputs.sha256 }}"
+          $fileSize = "${{ steps.filesize.outputs.size }}"
+          $tagName = "${{ github.ref_name }}"
+          $installerName = "${{ steps.find_installer.outputs.installer_name }}"
+          $pubDate = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss'Z'" -AsUTC)
+
+          $manifest = @"
+          {
+            "version": "$version",
+            "notes": "Release $version",
+            "pub_date": "$pubDate",
+            "force": false,
+            "platforms": {
+              "windows-x86_64": {
+                "url": "https://github.com/Adude4554/MVO-Hub/releases/download/$tagName/$installerName",
+                "file_size": $fileSize,
+                "sha256": "$sha256",
+                "signature": ""
+              }
+            }
+          }
+          "@
+
+          $manifest | Out-File -FilePath "latest.json" -Encoding utf8
+          Write-Host "Generated latest.json:"
+          Get-Content "latest.json"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            ${{ steps.find_installer.outputs.installer_path }}
+            latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit latest.json to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          cp latest.json latest.json
+          git add latest.json
+          git diff --cached --quiet || git commit -m "Update latest.json for ${{ github.ref_name }}"
+          git push origin main

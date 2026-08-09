@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MVO Hub — Universal Game Discovery Engine</title>
+  <title>MVO Hub — The Ultimate Gaming Command Center</title>
   <link rel="icon" href="images/logo.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,6 +16,8 @@
       --purple: #7c3aed;
       --pink: #ec4899;
       --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
       --dark: #0a0f1a;
       --dark-2: #111827;
       --dark-3: #1a2332;
@@ -104,7 +106,7 @@
       z-index: 2;
       text-align: center;
       padding: 2rem;
-      max-width: 800px;
+      max-width: 900px;
     }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 0.5rem;
@@ -137,7 +139,7 @@
     }
     .hero-sub {
       font-size: 1.25rem; color: rgba(255,255,255,0.8);
-      max-width: 600px; margin: 0 auto 2.5rem;
+      max-width: 650px; margin: 0 auto 2.5rem;
       animation: fadeInUp 0.8s ease-out 0.4s both;
       text-shadow: 0 1px 10px rgba(0,0,0,0.5);
     }
@@ -214,6 +216,41 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    /* ── WHATS NEW BANNER ── */
+    .whats-new {
+      padding: 3rem 2rem;
+      background: linear-gradient(135deg, rgba(0,212,255,0.05), rgba(124,58,237,0.05));
+      border-top: 1px solid rgba(0,212,255,0.1);
+      border-bottom: 1px solid rgba(0,212,255,0.1);
+      text-align: center;
+    }
+    .whats-new h2 {
+      font-size: 1.5rem; font-weight: 800; color: #fff;
+      margin-bottom: 1rem;
+    }
+    .whats-new h2 .highlight {
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .whats-new-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .whats-new-item {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+    .whats-new-item .icon { font-size: 1.2rem; }
+
     /* ── FEATURES ── */
     .features {
       padding: 6rem 2rem;
@@ -272,6 +309,82 @@
       color: var(--muted); font-size: 0.95rem; line-height: 1.6;
     }
 
+    /* ── SCANNER SECTION ── */
+    .scanner-section {
+      padding: 6rem 2rem;
+      background: linear-gradient(180deg, transparent, rgba(0,212,255,0.03), transparent);
+    }
+    .scanner-content {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+    }
+    .scanner-text h2 {
+      font-size: 2.5rem; font-weight: 800; color: #fff;
+      margin-bottom: 1rem;
+    }
+    .scanner-text h2 .gradient {
+      background: linear-gradient(135deg, var(--cyan), var(--green));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .scanner-text p {
+      font-size: 1.1rem; color: var(--muted); margin-bottom: 2rem;
+    }
+    .scanner-platforms {
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
+    }
+    .scanner-platform {
+      padding: 0.4rem 0.8rem; border-radius: 8px;
+      background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.15);
+      font-size: 0.8rem; font-weight: 600; color: var(--cyan);
+    }
+    .scanner-features {
+      list-style: none; margin-top: 2rem;
+    }
+    .scanner-features li {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.5rem 0;
+      font-size: 0.95rem; color: var(--text);
+    }
+    .scanner-features li::before {
+      content: '✓';
+      color: var(--green);
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    /* ── SECURITY SECTION ── */
+    .security-section {
+      padding: 6rem 2rem;
+      background: linear-gradient(180deg, transparent, rgba(16,185,129,0.03), transparent);
+    }
+    .security-grid {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;
+    }
+    .security-card {
+      padding: 2rem;
+      background: rgba(16,185,129,0.03);
+      border: 1px solid rgba(16,185,129,0.1);
+      border-radius: 16px;
+      transition: all 0.3s;
+    }
+    .security-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(16,185,129,0.25);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .security-card .icon {
+      font-size: 2rem; margin-bottom: 1rem;
+    }
+    .security-card h3 {
+      font-size: 1.1rem; font-weight: 700; color: #fff;
+      margin-bottom: 0.5rem;
+    }
+    .security-card p {
+      font-size: 0.9rem; color: var(--muted); line-height: 1.5;
+    }
+
     /* ── SCREENSHOTS ── */
     .screenshots {
       padding: 6rem 2rem;
@@ -306,10 +419,10 @@
     /* ── STATS ── */
     .stats {
       padding: 4rem 2rem;
-      max-width: 1000px; margin: 0 auto;
+      max-width: 1100px; margin: 0 auto;
     }
     .stats-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr);
+      display: grid; grid-template-columns: repeat(5, 1fr);
       gap: 2rem; text-align: center;
     }
     .stat h3 {
@@ -362,6 +475,7 @@
       .screenshot-grid { grid-template-columns: repeat(2, 1fr); }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .features-grid { grid-template-columns: 1fr; }
+      .scanner-content { grid-template-columns: 1fr; }
       .hero-video { min-height: 500px; }
       .hero-video-content h1 { font-size: 2.2rem; }
       .hero-sub { font-size: 1rem; }
@@ -391,9 +505,11 @@
     </a>
     <div class="nav-links">
       <a href="#features">Features</a>
+      <a href="#scanner">Scanner</a>
+      <a href="#security">Security</a>
       <a href="#screenshots">Screenshots</a>
     </div>
-    <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.12/MVO.Hub_0.2.12_x64-setup.exe" class="nav-cta">Download v0.2.12</a>
+    <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.13/MVO%20Hub_0.2.13_x64-setup.exe" class="nav-cta">Download v0.2.13</a>
   </nav>
 
   <!-- HERO VIDEO -->
@@ -404,18 +520,18 @@
     <div class="hero-video-content">
       <div class="hero-badge">
         <span class="dot"></span>
-        <span>v0.2.12 — Now with Ollama AI</span>
+        <span>v0.2.13 — Production-Grade Updater &amp; 16 Launchers</span>
       </div>
       <h1>
-        The <span class="gradient">Universal</span><br>
-        Game Discovery Engine
+        The <span class="gradient">Ultimate</span><br>
+        Gaming Command Center
       </h1>
       <p class="hero-sub">
-        Discover, launch, and manage all your games from one place.
-        Real-time system monitoring, AI assistant, and streaming — built for gamers.
+        One app to discover every game you own, monitor every sensor in your system,
+        and keep everything updated — automatically and securely.
       </p>
       <div class="hero-btns">
-        <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.12/MVO.Hub_0.2.12_x64-setup.exe" class="btn btn-primary">
+        <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.13/MVO%20Hub_0.2.13_x64-setup.exe" class="btn btn-primary">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download for Windows
         </a>
@@ -424,53 +540,162 @@
           Explore Features
         </a>
       </div>
-      <p class="hero-version">Free &amp; open source • Windows 10/11 • 58 MB installer</p>
+      <p class="hero-version">Free &amp; open source • Windows 10/11 • 4 MB installer • SHA-256 verified</p>
     </div>
   </section>
 
-  <!-- SOUND TOGGLE (fixed position) -->
+  <!-- SOUND TOGGLE -->
   <button class="sound-toggle muted" id="soundToggle" title="Toggle Sound">
     <span class="ripple"></span>
     <svg id="soundOnIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
     <svg id="soundOffIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
   </button>
 
+  <!-- WHAT'S NEW -->
+  <section class="whats-new reveal">
+    <h2>What's New in <span class="highlight">v0.2.13</span></h2>
+    <div class="whats-new-grid">
+      <div class="whats-new-item"><span class="icon">🛡️</span> SHA-256 Verified Updates</div>
+      <div class="whats-new-item"><span class="icon">🎮</span> 16 Game Launchers</div>
+      <div class="whats-new-item"><span class="icon">📊</span> Intel &amp; AMD GPU Sensors</div>
+      <div class="whats-new-item"><span class="icon">🔄</span> Production Updater</div>
+      <div class="whats-new-item"><span class="icon">⚡</span> Rollback Protection</div>
+      <div class="whats-new-item"><span class="icon">🔧</span> Bug Fixes &amp; Optimizations</div>
+    </div>
+  </section>
+
   <!-- FEATURES -->
   <section class="features reveal" id="features">
     <div class="section-header">
       <h2>Everything You Need</h2>
-      <p>A complete gaming hub — from library management to system optimization and AI-powered assistance.</p>
+      <p>A complete gaming command center — from library management to real-time hardware monitoring and secure auto-updates.</p>
     </div>
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-icon cyan">🎮</div>
-        <h3>Universal Game Library</h3>
-        <p>Auto-discovers games from Steam, Epic, GOG, EA, Battle.net, Xbox, and 8 more platforms. One library to rule them all.</p>
+        <h3>Universal Game Scanner</h3>
+        <p>Auto-discovers games from 16+ launchers including Steam, Epic, GOG, EA, Ubisoft, Battle.net, Riot, Xbox, Amazon, itch.io, Rockstar, Minecraft, Lutris, and Heroic. Confidence scoring, deduplication, and metadata enrichment.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon purple">🤖</div>
-        <h3>AI Assistant (Ollama)</h3>
-        <p>Local AI powered by Ollama — no API keys needed. Get gaming tips, system optimization advice, and troubleshooting help.</p>
+        <div class="feature-icon purple">📊</div>
+        <h3>Real-Time Hardware Monitor</h3>
+        <p>NVIDIA, Intel, and GPU monitoring with usage, VRAM, temperature, and fan speed. CPU, RAM, battery, and storage sensors — all updated live with animated dashboard graphs.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon pink">🎬</div>
-        <h3>Movies &amp; TV Shows</h3>
-        <p>Stream movies and TV shows with built-in player, artwork, and metadata — all in one app.</p>
+        <div class="feature-icon pink">🔄</div>
+        <h3>Production-Grade Updater</h3>
+        <p>Secure auto-updates with SHA-256 integrity verification, automatic rollback backups, progress streaming, and forced update support. Zero downtime, zero compromise.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon green">⚡</div>
         <h3>Performance Optimizer</h3>
-        <p>Real-time CPU, GPU, RAM, and disk monitoring. Gaming mode, RAM cleaning, and one-click performance boosts.</p>
+        <p>Real-time CPU, GPU, RAM, and disk monitoring. Gaming mode, RAM cleaning, one-click performance boosts, and per-game performance profiles with CPU affinity and priority settings.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon amber">📊</div>
-        <h3>Live System Dashboard</h3>
-        <p>GPU usage, temperatures, driver info, storage health — all updated in real-time with animated graphs.</p>
+        <div class="feature-icon amber">🤖</div>
+        <h3>AI Assistant (Ollama)</h3>
+        <p>Local AI powered by Ollama — no API keys needed. Get gaming tips, system optimization advice, and troubleshooting help without leaving the app.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon cyan">🔄</div>
-        <h3>Auto-Updates</h3>
-        <p>Seamless in-app updates via GitHub Releases. Download, install, and restart — all automatic.</p>
+        <div class="feature-icon cyan">☁️</div>
+        <h3>Cloud Sync &amp; Settings</h3>
+        <p>Persistent settings with GitHub Gist cloud backup. Conflict detection, automatic sync, and per-device configuration — your setup follows you everywhere.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon purple">🎬</div>
+        <h3>Movies &amp; TV Shows</h3>
+        <p>Stream movies and TV shows with built-in player, artwork, and metadata powered by TMDB. Your personal entertainment hub alongside your games.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon green">🔒</div>
+        <h3>Enterprise-Grade Security</h3>
+        <p>HTTPS-only downloads, SHA-256 integrity checks, PE header validation, downgrade prevention, concurrency locks, and automatic rollback — your system stays safe.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon pink">🖥️</div>
+        <h3>System Tray Integration</h3>
+        <p>Quick scan, update checks, and background monitoring from the system tray. MVO Hub runs quietly in the background until you need it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCANNER SECTION -->
+  <section class="scanner-section reveal" id="scanner">
+    <div class="scanner-content">
+      <div class="scanner-text">
+        <h2>Discover <span class="gradient">Every Game</span> You Own</h2>
+        <p>
+          MVO Hub's Game Scanner V2 scans your entire system and finds games from 16+ launchers
+          in seconds. No more hunting through folders — every game, one library.
+        </p>
+        <div class="scanner-platforms">
+          <span class="scanner-platform">Steam</span>
+          <span class="scanner-platform">Epic</span>
+          <span class="scanner-platform">GOG</span>
+          <span class="scanner-platform">EA</span>
+          <span class="scanner-platform">Ubisoft</span>
+          <span class="scanner-platform">Battle.net</span>
+          <span class="scanner-platform">Riot</span>
+          <span class="scanner-platform">Xbox</span>
+          <span class="scanner-platform">Amazon</span>
+          <span class="scanner-platform">itch.io</span>
+          <span class="scanner-platform">Rockstar</span>
+          <span class="scanner-platform">Minecraft</span>
+          <span class="scanner-platform">Lutris</span>
+          <span class="scanner-platform">Heroic</span>
+          <span class="scanner-platform">Emulator</span>
+          <span class="scanner-platform">Standalone</span>
+        </div>
+        <ul class="scanner-features">
+          <li>Confidence scoring — know which games are real</li>
+          <li>Automatic deduplication — no duplicate entries</li>
+          <li>Metadata enrichment from Steam Store API</li>
+          <li>Ignore rules for custom filtering</li>
+          <li>Quick, Full, and Custom scan modes</li>
+        </ul>
+      </div>
+      <div style="text-align: center;">
+        <img src="images/scanner-preview.png" alt="Game Scanner" style="max-width: 100%; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,0.5);" onerror="this.style.display='none'">
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURITY SECTION -->
+  <section class="security-section reveal" id="security">
+    <div class="section-header">
+      <h2>Built for Trust</h2>
+      <p>Every update is verified. Every download is checked. Your system stays safe.</p>
+    </div>
+    <div class="security-grid">
+      <div class="security-card">
+        <div class="icon">🔐</div>
+        <h3>SHA-256 Integrity</h3>
+        <p>Every installer is verified against its SHA-256 hash before execution. Corrupted or tampered files are rejected instantly.</p>
+      </div>
+      <div class="security-card">
+        <div class="icon">🛡️</div>
+        <h3>PE Header Validation</h3>
+        <p>Downloaded files are verified as valid Windows executables before installation. No partial downloads ever execute.</p>
+      </div>
+      <div class="security-card">
+        <div class="icon">⬆️</div>
+        <h3>Downgrade Prevention</h3>
+        <p>The updater never accidentally installs an older version. Remote version must always be newer than local.</p>
+      </div>
+      <div class="security-card">
+        <div class="icon">🔄</div>
+        <h3>Automatic Rollback</h3>
+        <p>Current version is backed up before every update. If something goes wrong, you can always restore the previous version.</p>
+      </div>
+      <div class="security-card">
+        <div class="icon">🔒</div>
+        <h3>HTTPS Only</h3>
+        <p>All downloads and manifest fetches use HTTPS. No insecure connections, no man-in-the-middle attacks.</p>
+      </div>
+      <div class="security-card">
+        <div class="icon">⚡</div>
+        <h3>Concurrency Lock</h3>
+        <p>Only one update can run at a time. No duplicate downloads, no conflicting installations, no race conditions.</p>
       </div>
     </div>
   </section>
@@ -521,16 +746,20 @@
   <section class="stats reveal">
     <div class="stats-grid">
       <div class="stat">
-        <h3>14+</h3>
-        <p>Game Platforms Scanned</p>
+        <h3>16+</h3>
+        <p>Game Launchers</p>
       </div>
       <div class="stat">
-        <h3>v0.2.12</h3>
-        <p>Latest Release</p>
+        <h3>185</h3>
+        <p>Automated Tests</p>
       </div>
       <div class="stat">
-        <h3>58 MB</h3>
+        <h3>4 MB</h3>
         <p>Installer Size</p>
+      </div>
+      <div class="stat">
+        <h3>SHA-256</h3>
+        <p>Verified Updates</p>
       </div>
       <div class="stat">
         <h3>Free</h3>
@@ -542,10 +771,10 @@
   <!-- CTA -->
   <section class="cta reveal">
     <h2>Ready to Level Up?</h2>
-    <p>Join the next generation of game management. Download MVO Hub and take control of your gaming experience.</p>
-    <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.12/MVO.Hub_0.2.12_x64-setup.exe" class="btn btn-primary">
+    <p>Join the next generation of game management. Download MVO Hub and take total control of your gaming experience.</p>
+    <a href="https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.13/MVO%20Hub_0.2.13_x64-setup.exe" class="btn btn-primary">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download MVO Hub v0.2.12
+      Download MVO Hub v0.2.13
     </a>
   </section>
 
@@ -567,7 +796,6 @@
     const soundOnIcon = document.getElementById('soundOnIcon');
     const soundOffIcon = document.getElementById('soundOffIcon');
 
-    // Video starts muted (autoplay policy)
     heroVideo.muted = true;
 
     soundToggle.addEventListener('click', () => {
@@ -586,7 +814,6 @@
       }
     });
 
-    // Auto-enable sound after first user interaction (browser autoplay policy)
     document.addEventListener('click', function enableSound() {
       if (!soundOn) {
         soundOn = true;

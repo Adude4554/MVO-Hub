@@ -148,11 +148,13 @@ export function Browser() {
     }
   }, [activeTab, navigate, createTab]);
 
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+
   // Clean up all webviews on unmount
   useEffect(() => {
-    const currentTabs = tabs;
     return () => {
-      currentTabs.forEach(tab => closeWebview(tab.webviewLabel));
+      tabsRef.current.forEach(tab => closeWebview(tab.webviewLabel));
     };
   }, []);
 
