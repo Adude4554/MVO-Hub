@@ -13,7 +13,14 @@ export function useSystem() {
   const check = useCallback(async () => {
     try {
       const result = await invoke<FirstRunStatus>('check_first_run');
-      setFirstRun(result);
+      // Guard against a malformed/empty response: assigning null here would
+      // poison state and make `complete()` throw on `firstRun.version`.
+      if (result && typeof result === 'object') {
+        setFirstRun({
+          is_first_run: Boolean(result.is_first_run),
+          version: typeof result.version === 'string' ? result.version : '',
+        });
+      }
     } catch (e) {
       console.error('First run check failed:', e);
     } finally {
@@ -24,11 +31,11 @@ export function useSystem() {
   const complete = useCallback(async () => {
     try {
       await invoke('complete_first_run');
-      setFirstRun({ is_first_run: false, version: firstRun.version });
+      setFirstRun((prev) => ({ is_first_run: false, version: prev?.version ?? '' }));
     } catch (e) {
       console.error('First run complete failed:', e);
     }
-  }, [firstRun.version]);
+  }, []);
 
   useEffect(() => {
     check();

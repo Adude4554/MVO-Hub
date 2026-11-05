@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
 export interface AppSettings {
@@ -45,7 +45,7 @@ export function useSettings() {
     boost_before_game: false,
     ai_provider: 'ollama',
     ai_base_url: 'http://localhost:11434',
-    ai_model: 'llama3.1',
+    ai_model: 'nemotron3-super',
      ai_api_key: '',
      first_run_complete: false,
      window_mode: 'normal',
@@ -60,10 +60,12 @@ export function useSettings() {
      dashboard_widgets: [],
    });
   const [loading, setLoading] = useState(true);
+  const settingsRef = useRef<AppSettings | null>(null);
 
   const load = useCallback(async () => {
     try {
       const data = await invoke<AppSettings>('load_settings');
+      settingsRef.current = data;
       setSettings(data);
     } catch (e) {
       console.error('Settings load failed:', e);
@@ -73,11 +75,14 @@ export function useSettings() {
   }, []);
 
   const save = useCallback(async (newSettings: Partial<AppSettings>) => {
-    setSettings(prev => {
-      const updated = { ...prev, ...newSettings };
-      invoke('save_settings', { settings: updated }).catch(e => console.error('Settings save failed:', e));
-      return updated;
-    });
+    const updated: AppSettings = { ...(settingsRef.current ?? {} as AppSettings), ...newSettings } as AppSettings;
+    settingsRef.current = updated;
+    setSettings(updated);
+    try {
+      await invoke('save_settings', { settings: updated });
+    } catch (e) {
+      console.error('Settings save failed:', e);
+    }
   }, []);
 
   const reset = useCallback(async () => {

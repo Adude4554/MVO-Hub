@@ -45,9 +45,9 @@ MVO Hub uses a **custom updater implementation** rather than the built-in `tauri
 - Manual checks always work regardless of `auto_update` setting
 
 ### 4. Manifest Fetch
-- URL read from settings `update_url` field, defaults to `https://raw.githubusercontent.com/YourOrg/MVO-Hub/main/update.json`
+- URL read from settings `update_url` field, defaults to `https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/latest.json` (the single unified manifest)
 - 30-second timeout on manifest request
-- Response parsed into `UpdateManifest` struct
+- Response parsed to JSON, **Ed25519 signature verified**, then parsed into `UpdateManifest` struct (`fetch_and_verify_manifest()` in `updater.rs`)
 
 ### 5. Version Comparison
 - `is_version_newer(local, remote)` in `updater.rs:191`
@@ -96,12 +96,16 @@ Three-layer check in `check_file_integrity()` (`updater.rs:307–342`):
     "windows-x86_64": {
       "url": "https://github.com/Adude4554/MVO-Hub/releases/download/v0.2.13/MVO.Hub_0.2.13_x64-setup.exe",
       "file_size": 85000000,
-      "sha256": "a1b2c3d4e5f6...",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6..."
+      "sha256": "a1b2c3d4e5f6..."
     }
-  }
+  },
+  "signature": "base64(Ed25519 signature over the canonical manifest body)"
 }
 ```
+
+The manifest is generated **and signed** by `.github/workflows/release.yml`
+(`cargo run --bin sign_manifest -- sign`) and published both as a GitHub
+Release asset and as `latest.json` committed to `main`.
 
 ### Fields
 
@@ -111,10 +115,10 @@ Three-layer check in `check_file_integrity()` (`updater.rs:307–342`):
 | `notes` | string | Yes | Release notes displayed to user |
 | `pub_date` | string | Yes | ISO 8601 publish date |
 | `force` | bool | No (default: `false`) | If `true`, shows lock screen that cannot be dismissed |
+| `signature` | string | **Yes** | Base64 Ed25519 signature over the canonical manifest body (JSON without this field, sorted keys). Verified against the public key embedded in `updater.rs` |
 | `platforms.windows-x86_64.url` | string | Yes | HTTPS download URL |
 | `platforms.windows-x86_64.file_size` | u64 | No | Expected file size in bytes (0 = unknown) |
 | `platforms.windows-x86_64.sha256` | string | No | SHA-256 hash (64 hex chars); verified if provided |
-| `platforms.windows-x86_64.signature` | string | No | Minisign signature (for Tauri plugin compatibility; not verified by custom updater) |
 
 ---
 

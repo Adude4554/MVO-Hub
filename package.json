@@ -1,15 +1,18 @@
 {
   "name": "project-mvo-app",
   "private": true,
-  "version": "0.2.13",
+  "version": "0.2.14",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:test": "vite --mode test",
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },
@@ -25,11 +28,11 @@
     "lucide-react": "^0.441.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.18.2",
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "@tauri-apps/cli": "^2",
     "@types/react": "^18.3.10",
     "@types/react-dom": "^18.3.0",

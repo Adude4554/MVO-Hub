@@ -73,9 +73,12 @@ fn read_exe_string_resource(exe_path: &Path, _key: &str) -> Option<String> {
         use std::process::Command;
         use std::os::windows::process::CommandExt;
 
+        // Escape single quotes (PS string escape is doubling) so a path
+        // containing ' cannot break out of the quoted string and inject code.
+        let escaped = exe_path.display().to_string().replace('\'', "''");
         let output = Command::new("powershell")
             .args(["-NoProfile", "-Command", &format!(
-                "(Get-Item '{}').VersionInfo.{}", exe_path.display(), _key
+                "(Get-Item '{}').VersionInfo.{}", escaped, _key
             )])
             .creation_flags(0x08000000)
             .output()

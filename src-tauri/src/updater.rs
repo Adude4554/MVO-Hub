@@ -5,11 +5,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use base64::engine::general_purpose::STANDARD as B64;
+use base64::Engine as _;
 use chrono::Local;
 use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tauri::Emitter;
 
@@ -275,6 +277,124 @@ pub fn validate_manifest(manifest: &UpdateManifest) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------
+// Ed25519 manifest signature (unified manifest format)
+//
+// The release pipeline signs every published manifest with an Ed25519 key
+// whose seed lives ONLY in the GitHub Actions secret `MANIFEST_SIGNING_KEY`.
+// The corresponding public key is embedded below as the trust anchor.
+//
+// Signature covers the *canonical* manifest body: the manifest JSON with the
+// top-level `signature` field removed, re-serialized by serde_json (object
+// keys are emitted in sorted order), so formatting and original key order
+// do not affect the result.
+// ---------------------------------------------------------------------------
+
+/// The single unified manifest published by `.github/workflows/release.yml`
+/// (generated, signed, attached to the GitHub Release and committed to main).
+/// This replaces the old split: CI `latest.json` (Tauri format, stale) vs.
+/// `update.json` (custom format, never published from this repo).
+pub const UNIFIED_MANIFEST_URL: &str =
+    "https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/latest.json";
+
+/// Base64-encoded Ed25519 public key (32 raw bytes) used to authenticate
+/// update manifests. Rotating requires a new app release.
+pub const MANIFEST_PUBLIC_KEY_B64: &str =
+    "OWkWwlNTkewtpfXRqlHb6ItNW8maVN53bwL1iNsYEC4=";
+
+/// Canonical byte representation of a manifest for signing/verification:
+/// the JSON body with the top-level `signature` field removed, serialized
+/// deterministically (sorted object keys, no insignificant whitespace).
+pub fn canonical_manifest_bytes(manifest: &Value) -> Result<Vec<u8>, String> {
+    let mut clone = manifest.clone();
+    clone
+        .as_object_mut()
+        .ok_or_else(|| "Manifest must be a JSON object".to_string())?
+        .remove("signature");
+    serde_json::to_string(&clone)
+        .map(|s| s.into_bytes())
+        .map_err(|e| format!("Failed to canonicalize manifest: {}", e))
+}
+
+/// Verify a manifest's top-level Ed25519 `signature` against `public_key_b64`.
+pub fn verify_manifest_signature_with(
+    manifest: &Value,
+    public_key_b64: &str,
+) -> Result<(), String> {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+    let sig_b64 = manifest
+        .get("signature")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Manifest is missing the Ed25519 'signature' field".to_string())?;
+    if sig_b64.trim().is_empty() {
+        return Err("Manifest 'signature' field is empty".into());
+    }
+
+    let pk_bytes = B64
+        .decode(public_key_b64.trim())
+        .map_err(|e| format!("Embedded public key decode error: {}", e))?;
+    let pk: [u8; 32] = pk_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| "Embedded public key must be 32 bytes".to_string())?;
+    let verifying_key =
+        VerifyingKey::from_bytes(&pk).map_err(|e| format!("Invalid embedded public key: {}", e))?;
+
+    let sig_bytes = B64
+        .decode(sig_b64.trim())
+        .map_err(|e| format!("Manifest signature decode error: {}", e))?;
+    let signature =
+        Signature::from_slice(&sig_bytes).map_err(|e| format!("Invalid signature: {}", e))?;
+
+    let body = canonical_manifest_bytes(manifest)?;
+    verifying_key
+        .verify(&body, &signature)
+        .map_err(|_| "Manifest Ed25519 signature verification FAILED".to_string())
+}
+
+/// Verify a manifest against the embedded production public key.
+pub fn verify_manifest_signature(manifest: &Value) -> Result<(), String> {
+    verify_manifest_signature_with(manifest, MANIFEST_PUBLIC_KEY_B64)
+}
+
+/// Fetch, authenticate and validate the unified update manifest.
+///
+/// Single consumption path used by both `check_for_updates` and
+/// `download_and_install_update`:
+///   1. HTTPS GET with status check
+///   2. Parse JSON
+///   3. Ed25519 signature verification (trust anchor: embedded public key)
+///   4. Structural validation (HTTPS URL, hash format, size floors)
+async fn fetch_and_verify_manifest(client: &Client, url: &str) -> Result<UpdateManifest, String> {
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch manifest: {}", e))?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(format!("Manifest request returned HTTP {}", status));
+    }
+
+    let body = resp
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read manifest body: {}", e))?;
+
+    let value: Value =
+        serde_json::from_str(&body).map_err(|e| format!("Failed to parse manifest: {}", e))?;
+
+    verify_manifest_signature(&value)?;
+
+    let manifest: UpdateManifest =
+        serde_json::from_value(value).map_err(|e| format!("Invalid manifest structure: {}", e))?;
+
+    validate_manifest(&manifest)?;
+    Ok(manifest)
+}
+
+// ---------------------------------------------------------------------------
 // SHA-256 verification
 // ---------------------------------------------------------------------------
 
@@ -434,27 +554,14 @@ pub async fn check_for_updates() -> Result<String, String> {
     let manifest_url = settings
         .get("update_url")
         .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| {
-            "https://raw.githubusercontent.com/YourOrg/MVO-Hub/main/update.json".to_string()
-        });
+        .unwrap_or_else(|| UNIFIED_MANIFEST_URL.to_string());
 
     let client = Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
-    let resp = client
-        .get(&manifest_url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch manifest: {}", e))?;
-
-    let manifest: UpdateManifest = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse manifest: {}", e))?;
-
-    validate_manifest(&manifest)?;
+    let manifest = fetch_and_verify_manifest(&client, &manifest_url).await?;
 
     let current_version = env!("CARGO_PKG_VERSION");
     let remote_version = &manifest.version;
@@ -509,27 +616,14 @@ async fn do_download_and_install(app: &tauri::AppHandle) -> Result<String, Strin
     let manifest_url = settings
         .get("update_url")
         .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| {
-            "https://raw.githubusercontent.com/YourOrg/MVO-Hub/main/update.json".to_string()
-        });
+        .unwrap_or_else(|| UNIFIED_MANIFEST_URL.to_string());
 
     let client = Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
-    let resp = client
-        .get(&manifest_url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch manifest: {}", e))?;
-
-    let manifest: UpdateManifest = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse manifest: {}", e))?;
-
-    validate_manifest(&manifest)?;
+    let manifest = fetch_and_verify_manifest(&client, &manifest_url).await?;
 
     let current_version = env!("CARGO_PKG_VERSION");
     if !is_version_newer(current_version, &manifest.version) {
@@ -1275,5 +1369,125 @@ mod tests {
             set_state(*s);
             assert_eq!(current_state(), *s);
         }
+    }
+
+    // ---- Ed25519 manifest signature tests ----
+
+    use ed25519_dalek::Signer as _;
+
+    fn unsigned_manifest_json() -> Value {
+        json!({
+            "version": "9.9.9",
+            "notes": "test release",
+            "pub_date": "2026-11-05T00:00:00Z",
+            "force": false,
+            "platforms": {
+                "windows-x86_64": {
+                    "url": "https://example.com/setup.exe",
+                    "file_size": 5_000_000u64,
+                    "sha256": "a".repeat(64)
+                }
+            }
+        })
+    }
+
+    fn sign_manifest_json(mut m: Value, seed: &[u8; 32]) -> (Value, String) {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(seed);
+        let body = canonical_manifest_bytes(&m).unwrap();
+        let signature = signing_key.sign(&body);
+        m["signature"] = json!(B64.encode(signature.to_bytes()));
+        let pubkey = B64.encode(signing_key.verifying_key().to_bytes());
+        (m, pubkey)
+    }
+
+    #[test]
+    fn signature_roundtrip_ok() {
+        let (signed, pubkey) = sign_manifest_json(unsigned_manifest_json(), &[7u8; 32]);
+        assert!(verify_manifest_signature_with(&signed, &pubkey).is_ok());
+    }
+
+    #[test]
+    fn signature_tamper_detected() {
+        let (mut signed, pubkey) = sign_manifest_json(unsigned_manifest_json(), &[7u8; 32]);
+        // Attacker flips the version after signing
+        signed["version"] = json!("10.0.0");
+        let err = verify_manifest_signature_with(&signed, &pubkey).unwrap_err();
+        assert!(err.contains("FAILED"), "unexpected error: {}", err);
+    }
+
+    #[test]
+    fn signature_missing_rejected() {
+        let unsigned = unsigned_manifest_json();
+        let err = verify_manifest_signature_with(&unsigned, "AAAA").unwrap_err();
+        assert!(err.contains("missing"), "unexpected error: {}", err);
+    }
+
+    #[test]
+    fn signature_empty_rejected() {
+        let mut m = unsigned_manifest_json();
+        m["signature"] = json!("");
+        let err = verify_manifest_signature_with(&m, "AAAA").unwrap_err();
+        assert!(err.contains("empty"), "unexpected error: {}", err);
+    }
+
+    #[test]
+    fn signature_wrong_key_rejected() {
+        let (signed, _real_pubkey) = sign_manifest_json(unsigned_manifest_json(), &[7u8; 32]);
+        // Verify against a different (attacker or stale) key
+        let (_other_signed, other_pubkey) = sign_manifest_json(unsigned_manifest_json(), &[9u8; 32]);
+        assert!(verify_manifest_signature_with(&signed, &other_pubkey).is_err());
+        let _ = _other_signed;
+    }
+
+    #[test]
+    fn signature_garbage_rejected() {
+        let mut m = unsigned_manifest_json();
+        m["signature"] = json!("not-valid-base64!!!");
+        assert!(verify_manifest_signature_with(&m, MANIFEST_PUBLIC_KEY_B64).is_err());
+    }
+
+    #[test]
+    fn canonicalization_is_key_order_independent() {
+        // Same content, different formatting/key order/signature → same body
+        let a: Value = serde_json::from_str(
+            r#"{"version":"1.0.0","notes":"n","platforms":{"windows-x86_64":{"url":"https://e.com/x.exe","sha256":"aa"}},"signature":"SIG","pub_date":"d","force":false}"#,
+        )
+        .unwrap();
+        let b: Value = serde_json::from_str(
+            r#"{
+                "force": false,
+                "pub_date": "d",
+                "notes": "n",
+                "platforms": { "windows-x86_64": { "sha256": "aa", "url": "https://e.com/x.exe" } },
+                "version": "1.0.0",
+                "signature": "DIFFERENT_SIG"
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            canonical_manifest_bytes(&a).unwrap(),
+            canonical_manifest_bytes(&b).unwrap()
+        );
+    }
+
+    #[test]
+    fn canonicalization_rejects_non_object() {
+        let arr = json!([1, 2, 3]);
+        assert!(canonical_manifest_bytes(&arr).is_err());
+    }
+
+    #[test]
+    fn verify_rejects_non_base64_signature() {
+        let mut m = unsigned_manifest_json();
+        m["signature"] = json!("!!!!");
+        assert!(verify_manifest_signature_with(&m, MANIFEST_PUBLIC_KEY_B64).is_err());
+    }
+
+    #[test]
+    fn verify_rejects_wrong_length_signature() {
+        let mut m = unsigned_manifest_json();
+        // 16 bytes of valid base64 → wrong signature length
+        m["signature"] = json!(B64.encode([0u8; 16]));
+        assert!(verify_manifest_signature_with(&m, MANIFEST_PUBLIC_KEY_B64).is_err());
     }
 }

@@ -14,11 +14,11 @@ pub struct EnrichedGame {
     pub icon_local: Option<String>,
 }
 
-/// Cache directory for artwork
+/// Cache directory for artwork (v0.2.14): %LOCALAPPDATA%\MVO Hub\artwork_cache
 fn artwork_cache_dir() -> PathBuf {
     let base = dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("project-mvo-app")
+        .join("MVO Hub")
         .join("artwork_cache");
     fs::create_dir_all(&base).ok();
     base
@@ -78,13 +78,16 @@ fn extract_exe_icon(exe_path: &str) -> Option<String> {
         return None;
     }
 
-    // Try to get icon via PowerShell
+    // Try to get icon via PowerShell.
+    // Escape single quotes (PS string escape is doubling) so a path containing '
+    // cannot break out of the quoted string and inject code.
+    let escaped = exe_path.replace('\'', "''");
     let output = std::process::Command::new("powershell")
         .args([
             "-Command",
             &format!(
                 "Add-Type -AssemblyName System.Drawing; $icon = [System.Drawing.Icon]::ExtractAssociatedIcon('{}'); if ($icon) {{ $bmp = $icon.ToBitmap(); $ms = New-Object System.IO.MemoryStream; $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png); [Convert]::ToBase64String($ms.ToArray()) }}",
-                exe_path.replace('\\', "\\\\")
+                escaped
             ),
         ])
         .creation_flags(0x08000000)

@@ -62,6 +62,12 @@ export function Overlay({ overlay, hardwareSensors }: any) {
               <div className="text-xs text-mvo-textMuted">{hs.gpuDevice?.name || 'No GPU'}</div>
             </div>
             <div className="glass-strong rounded-lg p-4 text-center">
+              <Thermometer className="w-5 h-5 ${hs.cpuTemperature && hs.cpuTemperature > 85 ? 'text-red-400' : hs.cpuTemperature && hs.cpuTemperature > 75 ? 'text-amber-400' : 'text-cyan-400'} mx-auto mb-2" />
+              <div className={`text-2xl font-bold ${hs.cpuTemperature && hs.cpuTemperature > 85 ? 'text-red-400' : 'text-mvo-text'}`}>{hs.cpuTemperature?.toFixed(0) || '--'}°C</div>
+              <div className="text-xs text-mvo-textDim mt-1">CPU Temp</div>
+              <div className="text-xs text-mvo-textMuted">{hs.cpuTemperatureIsApprox ? 'Approx' : 'Helper'}</div>
+            </div>
+            <div className="glass-strong rounded-lg p-4 text-center">
               <Gauge className="w-5 h-5 text-green-400 mx-auto mb-2" />
               <div className="text-2xl font-bold text-mvo-text">{hs.gpuUsage?.toFixed(1) || '0'}%</div>
               <div className="text-xs text-mvo-textDim mt-1">GPU Usage</div>

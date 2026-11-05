@@ -41,6 +41,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Verify signing secrets are configured
+        shell: pwsh
+        env:
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:MANIFEST_SIGNING_KEY)) {
+            Write-Error "Repository secret MANIFEST_SIGNING_KEY is not set. Generate a keypair with: cargo run --bin sign_manifest -- keygen"
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            Write-Error "Repository secret TAURI_SIGNING_PRIVATE_KEY is not set. Generate a new key with: npx tauri signer generate"
+            exit 1
+          }
+          Write-Output "Signing secrets present."
+
       - name: Run cargo test
         run: cargo test
 
@@ -90,7 +105,7 @@ jobs:
           Write-Host "Version: $version"
           echo "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Generate latest.json
+      - name: Generate unified update manifest
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
@@ -100,26 +115,39 @@ jobs:
           $installerName = "${{ steps.find_installer.outputs.installer_name }}"
           $pubDate = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss'Z'" -AsUTC)
 
-          $manifest = @"
-          {
-            "version": "$version",
-            "notes": "Release $version",
-            "pub_date": "$pubDate",
-            "force": false,
-            "platforms": {
-              "windows-x86_64": {
-                "url": "https://github.com/Adude4554/MVO-Hub/releases/download/$tagName/$installerName",
-                "file_size": $fileSize,
-                "sha256": "$sha256",
-                "signature": ""
+          # Single unified manifest format consumed by src-tauri/src/updater.rs.
+          # NOTE: no "signature" field here - it is added by the Ed25519 signing step.
+          $manifest = [ordered]@{
+            version    = $version
+            notes      = "Release $version"
+            pub_date   = $pubDate
+            force      = $false
+            platforms  = @{
+              "windows-x86_64" = @{
+                url       = "https://github.com/Adude4554/MVO-Hub/releases/download/$tagName/$installerName"
+                file_size = [int64]$fileSize
+                sha256    = $sha256
               }
             }
           }
-          "@
 
-          $manifest | Out-File -FilePath "latest.json" -Encoding utf8
-          Write-Host "Generated latest.json:"
-          Get-Content "latest.json"
+          $out = Join-Path $env:RUNNER_TEMP "latest.json"
+          $manifest | ConvertTo-Json -Depth 5 | Out-File -FilePath $out -Encoding utf8
+          Write-Host "Generated unsigned manifest at $out :"
+          Get-Content $out
+
+      - name: Sign manifest (Ed25519)
+        shell: pwsh
+        env:
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: |
+          $in = Join-Path $env:RUNNER_TEMP "latest.json"
+          # cargo run signs in place and self-verifies against the public key
+          # embedded in updater.rs - a seed/pubkey mismatch fails here, before
+          # anything is published.
+          cargo run --release --bin sign_manifest -- sign --in $in --out $in
+          Write-Host "Signed manifest:"
+          Get-Content $in
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -127,18 +155,25 @@ jobs:
           generate_release_notes: true
           files: |
             ${{ steps.find_installer.outputs.installer_path }}
-            latest.json
+            ${{ runner.temp }}/latest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Commit latest.json to main
+        shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git checkout main
           git pull origin main
-          cp latest.json latest.json
+          # The signed manifest was generated in RUNNER_TEMP, so the working
+          # tree is clean at this point and checkout cannot be blocked by it.
+          Copy-Item (Join-Path $env:RUNNER_TEMP "latest.json") latest.json -Force
           git add latest.json
-          git diff --cached --quiet || git commit -m "Update latest.json for ${{ github.ref_name }}"
-          git push origin main
+          if (git diff --cached --quiet) {
+            Write-Host "latest.json unchanged - nothing to commit"
+          } else {
+            git commit -m "Update latest.json for ${{ github.ref_name }}"
+            git push origin main
+          }

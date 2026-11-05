@@ -1,21 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
-import { Minimize, Maximize, X, PanelRight, PanelLeft, Settings as SettingsIcon, ChevronDown, Square } from 'lucide-react';
+import {
+  Minimize,
+  Maximize,
+  X,
+  Square,
+  Search,
+  Bell,
+  LogOut,
+  User as UserIcon,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { availablePages, PageId } from '../config/pages';
-import { useLocale } from '../hooks/useLocale';
-import { t } from '../lib/i18n';
 import { invoke } from '@tauri-apps/api/core';
+import { PageId } from '../config/pages';
 import { WindowSnapLayout } from './WindowSnapLayout';
 
 const AVATAR_COLORS = [
-  'from-cyan-400 to-blue-600',
-  'from-purple-400 to-pink-600',
-  'from-green-400 to-emerald-600',
-  'from-orange-400 to-red-600',
-  'from-yellow-400 to-amber-600',
-  'from-indigo-400 to-violet-600',
-  'from-rose-400 to-fuchsia-600',
-  'from-teal-400 to-cyan-600',
+  'from-rose-500 to-red-700',
+  'from-amber-400 to-orange-600',
+  'from-emerald-400 to-teal-600',
+  'from-sky-400 to-blue-600',
+  'from-violet-400 to-purple-600',
+  'from-fuchsia-400 to-pink-600',
 ];
 
 function getAvatarColor(username: string) {
@@ -30,155 +36,255 @@ interface TopHUDProps {
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
-  onToggleSidebar: () => void;
-  sidebarCollapsed: boolean;
-  onToggleRightPanel: () => void;
-  rightPanelOpen: boolean;
+  /** Opens the global search palette (same handler as the Ctrl+K shortcut). */
+  onOpenSearch?: () => void;
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
   user?: { id: number; username: string; email: string; avatar?: string } | null;
   onNavigate?: (page: PageId, tab?: string) => void;
+  /** Optional page-level notification badge count. */
+  notifications?: number;
 }
 
 export function TopHUD({
-  activePage,
   windowState,
   onMinimize,
   onMaximize,
   onClose,
-  onToggleSidebar,
-  sidebarCollapsed,
-  onToggleRightPanel,
-  rightPanelOpen,
+  onOpenSearch,
   user,
   onNavigate,
+  notifications = 0,
 }: TopHUDProps) {
-  useLocale();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [snapLayoutOpen, setSnapLayoutOpen] = useState(false);
   const snapLayoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const page = availablePages.find(p => p.id === activePage);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      const target = e.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) setMenuOpen(false);
+      if (notifRef.current && !notifRef.current.contains(target)) setNotifOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Drag the frameless window, but never from an interactive element.
   const handleDragStart = async (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('input') || target.closest('[role="menu"]') || target.closest('.no-drag')) return;
+    if (
+      target.closest('button') ||
+      target.closest('input') ||
+      target.closest('[role="menu"]') ||
+      target.closest('.no-drag')
+    ) {
+      return;
+    }
     e.preventDefault();
-    try { await getCurrentWindow().startDragging(); } catch {}
+    try {
+      await getCurrentWindow().startDragging();
+    } catch {
+      /* not running under Tauri */
+    }
   };
 
-  const initial = user?.username?.[0]?.toUpperCase() || 'U';
-  const gradient = getAvatarColor(user?.username || 'U');
+  const displayName = user?.username || 'Adnan';
+  const initial = displayName[0]?.toUpperCase() || 'A';
+  const gradient = getAvatarColor(displayName);
 
   return (
-    <>
-      <header
-        className="h-12 bg-mvo-panel/80 backdrop-blur-xl border-b border-mvo-border/50 flex items-center justify-between px-4 z-50 select-none"
-        onMouseDown={handleDragStart}
-      >
-        <div className="flex items-center gap-3">
-          <button onClick={onToggleSidebar} className="no-drag p-2 rounded-xl text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover transition-all duration-200" aria-label="Toggle sidebar">
-            <PanelLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400/20 to-purple-500/20 flex items-center justify-center border border-cyan-400/30">
-              <span className="text-xl">🎮</span>
-            </div>
-            <span className="font-display font-bold text-lg bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-              MVO Hub
+    <header
+      data-testid="top-hud"
+      className="relative z-50 shrink-0 select-none border-b border-white/[0.06] bg-[#070b16]/85 backdrop-blur-xl"
+      onMouseDown={handleDragStart}
+    >
+      <div className="flex h-[76px] items-center gap-4 px-6">
+        {/* ── Greeting ─────────────────────────────────────── */}
+        <div className="min-w-0 flex-1">
+          <h1
+            data-testid="greeting"
+            className="truncate text-[19px] font-bold leading-tight tracking-[-0.2px] text-white"
+          >
+            Welcome back, <span className="text-white">{displayName}</span>
+          </h1>
+          <p className="mt-0.5 truncate text-[11.5px] leading-tight text-white/40">
+            Your ultimate hub for gaming, entertainment and more.
+          </p>
+        </div>
+
+        {/* ── Search + actions ─────────────────────────────── */}
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Pill-shaped search — opens the real palette (Ctrl+K) */}
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            data-testid="search-trigger"
+            className="no-drag hidden h-10 w-[260px] items-center gap-2.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 text-left transition-colors hover:border-white/15 hover:bg-white/[0.07] md:flex"
+            aria-label="Search anything"
+          >
+            <Search className="h-4 w-4 shrink-0 text-white/35" />
+            <span className="flex-1 truncate text-[12.5px] text-white/35">
+              Search anything… (Ctrl + K)
             </span>
+          </button>
+
+          {/* Notifications */}
+          <div className="no-drag relative" ref={notifRef}>
+            <button
+              type="button"
+              onClick={() => setNotifOpen((v) => !v)}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/60 transition-colors hover:border-white/15 hover:bg-white/[0.07] hover:text-white"
+              aria-label="Notifications"
+            >
+              <Bell className="h-[17px] w-[17px]" />
+              {notifications > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-mvo-crimsonBright px-1 text-[9px] font-bold text-white shadow-[0_0_10px_var(--mvo-crimson-glow)]">
+                  {notifications > 9 ? '9+' : notifications}
+                </span>
+              )}
+            </button>
+            {notifOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-xl border border-white/10 bg-[#0b1120] shadow-2xl"
+              >
+                <div className="border-b border-white/[0.07] px-4 py-3">
+                  <p className="text-[12px] font-semibold text-white">Notifications</p>
+                </div>
+                <div className="px-4 py-8 text-center text-[11.5px] text-white/35">
+                  You’re all caught up.
+                </div>
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="flex-1 flex items-center justify-center gap-4">
-          {!sidebarCollapsed && page && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-mvo-panelHover/50 rounded-lg border border-mvo-border/30">
-              <span className="text-xl">{page.icon}</span>
-              <span className="font-medium text-sm text-mvo-text">{t(`nav.${page.id}`)}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1">
-          {user && (
-            <div className="relative" ref={menuRef}>
-              <button onClick={() => setMenuOpen(!menuOpen)} className="no-drag flex items-center gap-2 p-1.5 rounded-xl hover:bg-mvo-panelHover transition-all duration-200">
-                {user.avatar ? (
-                  <img src={user.avatar} alt={user.username} className="w-7 h-7 rounded-lg object-cover" />
-                ) : (
-                  <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-                    <span className="text-white font-bold text-xs">{initial}</span>
-                  </div>
-                )}
-                <span className="text-xs text-mvo-textDim max-w-[80px] truncate hidden md:block">{user.username}</span>
-                <ChevronDown className={`w-3 h-3 text-mvo-textDim transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-mvo-panel/95 backdrop-blur-xl border border-mvo-border/50 rounded-xl shadow-xl overflow-hidden z-50">
-                  <div className="px-4 py-3 border-b border-mvo-border/30">
-                    <p className="font-medium text-sm text-mvo-text">{user.username}</p>
-                    <p className="text-xs text-mvo-textDim">{user.email}</p>
-                  </div>
-                  <div className="py-1">
-                    <button onClick={() => { setMenuOpen(false); onNavigate?.('settings', 'account'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover transition-colors">
-                      <SettingsIcon className="w-4 h-4" /> Account Settings
-                    </button>
-                    <button onClick={async () => { await invoke('logout'); window.location.reload(); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-400/10 transition-colors">
-                      <X className="w-4 h-4" /> Sign Out
-                    </button>
-                  </div>
+          {/* Avatar */}
+          <div className="no-drag relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              data-testid="avatar-button"
+              className="flex items-center gap-2 rounded-full p-0.5 transition-opacity hover:opacity-90"
+              aria-label="Open user menu"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={displayName}
+                  className="h-10 w-10 rounded-full object-cover ring-2 ring-mvo-crimson/50"
+                />
+              ) : (
+                <div
+                  className={[
+                    'flex h-10 w-10 items-center justify-center rounded-full',
+                    'bg-gradient-to-br ring-2 ring-mvo-crimson/50',
+                    gradient,
+                  ].join(' ')}
+                >
+                  <span className="text-sm font-bold text-white">{initial}</span>
                 </div>
               )}
-            </div>
-          )}
-          <button
-            onClick={onToggleRightPanel}
-            className={`no-drag p-2 rounded-xl transition-all duration-200 ${rightPanelOpen ? 'bg-mvo-accent/20 text-mvo-accent' : 'text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover'}`}
-            aria-label="Toggle right panel"
-          >
-            <PanelRight className="w-5 h-5" />
-          </button>
-          <button onClick={onMinimize} className="no-drag p-2 rounded-xl text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover transition-all duration-200" aria-label="Minimize">
-            <Minimize className="w-5 h-5" />
-          </button>
-          {windowState === 'maximized' ? (
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-2 w-60 overflow-hidden rounded-xl border border-white/10 bg-[#0b1120] shadow-2xl"
+              >
+                <div className="border-b border-white/[0.07] px-4 py-3">
+                  <p className="truncate text-[13px] font-semibold text-white">{displayName}</p>
+                  <p className="truncate text-[11px] text-white/40">{user?.email || 'Local profile'}</p>
+                </div>
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onNavigate?.('settings', 'account');
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[12.5px] text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <UserIcon className="h-4 w-4" /> Account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onNavigate?.('settings');
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[12.5px] text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <SettingsIcon className="h-4 w-4" /> Settings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await invoke('logout');
+                      } catch {
+                        /* not running under Tauri */
+                      }
+                      window.location.reload();
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[12.5px] text-mvo-crimsonBright transition-colors hover:bg-mvo-crimson/10"
+                  >
+                    <LogOut className="h-4 w-4" /> Sign out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Window controls */}
+          <div className="no-drag ml-1 flex items-center gap-0.5 border-l border-white/[0.07] pl-2">
+            <button
+              type="button"
+              onClick={onMinimize}
+              className="rounded-md p-2 text-white/40 transition-colors hover:bg-white/[0.07] hover:text-white"
+              aria-label="Minimize"
+            >
+              <Minimize className="h-4 w-4" />
+            </button>
             <div className="relative">
               <button
+                type="button"
                 onClick={onMaximize}
-                onMouseEnter={() => { snapLayoutTimer.current = setTimeout(() => setSnapLayoutOpen(true), 400); }}
-                onMouseLeave={() => { clearTimeout(snapLayoutTimer.current!); setTimeout(() => setSnapLayoutOpen(false), 200); }}
-                className="no-drag p-2 rounded-xl text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover transition-all duration-200"
-                aria-label="Restore"
+                onMouseEnter={() => {
+                  snapLayoutTimer.current = setTimeout(() => setSnapLayoutOpen(true), 400);
+                }}
+                onMouseLeave={() => {
+                  if (snapLayoutTimer.current) clearTimeout(snapLayoutTimer.current);
+                  setTimeout(() => setSnapLayoutOpen(false), 200);
+                }}
+                className="rounded-md p-2 text-white/40 transition-colors hover:bg-white/[0.07] hover:text-white"
+                aria-label={windowState === 'maximized' ? 'Restore' : 'Maximize'}
               >
-                <Square className="w-5 h-5" />
+                {windowState === 'maximized' ? (
+                  <Square className="h-4 w-4" />
+                ) : (
+                  <Maximize className="h-4 w-4" />
+                )}
               </button>
               <WindowSnapLayout open={snapLayoutOpen} onClose={() => setSnapLayoutOpen(false)} />
             </div>
-          ) : (
-            <div className="relative">
-              <button
-                onClick={onMaximize}
-                onMouseEnter={() => { snapLayoutTimer.current = setTimeout(() => setSnapLayoutOpen(true), 400); }}
-                onMouseLeave={() => { clearTimeout(snapLayoutTimer.current!); setTimeout(() => setSnapLayoutOpen(false), 200); }}
-                className="no-drag p-2 rounded-xl text-mvo-textDim hover:text-mvo-text hover:bg-mvo-panelHover transition-all duration-200"
-                aria-label="Maximize"
-              >
-                <Maximize className="w-5 h-5" />
-              </button>
-              <WindowSnapLayout open={snapLayoutOpen} onClose={() => setSnapLayoutOpen(false)} />
-            </div>
-          )}
-          <button onClick={onClose} className="no-drag p-2 rounded-xl text-mvo-textDim hover:text-mvo-accentRed hover:bg-mvo-accentRed/10 transition-all duration-200" aria-label="Close" title="Minimize to tray">
-            <X className="w-5 h-5" />
-          </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-2 text-white/40 transition-colors hover:bg-mvo-crimson hover:text-white"
+              aria-label="Close"
+              title="Minimize to tray"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </header>
-    </>
+      </div>
+    </header>
   );
 }

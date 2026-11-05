@@ -446,19 +446,53 @@ interface ScannerSettings {
   cache_retention_days: number;
 }
 
+// Backend get_scanner_settings returns { scanRoots, excludePaths, autoScanOnLaunch,
+// scanType, hideLowConfidence, confidenceThreshold } when scanner_settings.json is
+// missing, while the frontend historically expected { scan_paths, auto_scan, ... }.
+// Always normalize to the frontend shape so a fresh install cannot crash on
+// `settings.scan_paths.map`.
+function normalizeScannerSettings(data: unknown): ScannerSettings {
+  const d = (data ?? {}) as Record<string, unknown>;
+  const scanPaths = Array.isArray(d.scan_paths)
+    ? (d.scan_paths as unknown[]).filter((p): p is string => typeof p === 'string')
+    : Array.isArray(d.scanRoots)
+      ? (d.scanRoots as unknown[]).filter((p): p is string => typeof p === 'string')
+      : [];
+  return {
+    scan_paths: scanPaths,
+    auto_scan: typeof d.auto_scan === 'boolean'
+      ? d.auto_scan
+      : typeof d.autoScanOnLaunch === 'boolean' ? d.autoScanOnLaunch : true,
+    enable_metadata: typeof d.enable_metadata === 'boolean' ? d.enable_metadata : true,
+    cache_retention_days: typeof d.cache_retention_days === 'number' ? d.cache_retention_days : 7,
+  };
+}
+
 function ScannerSettingsTab() {
   const [settings, setSettings] = useState<ScannerSettings>({ scan_paths: [], auto_scan: true, enable_metadata: true, cache_retention_days: 7 });
   const [saving, setSaving] = useState(false);
   const [newPath, setNewPath] = useState('');
 
   useEffect(() => {
-    invoke<ScannerSettings>('get_scanner_settings').then(setSettings).catch(() => {});
+    let cancelled = false;
+    invoke<unknown>('get_scanner_settings')
+      .then(data => { if (!cancelled) setSettings(normalizeScannerSettings(data)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   const save = async () => {
     setSaving(true);
     try {
-      await invoke('save_scanner_settings', { settings });
+      // Persist both shapes so backend-format files (scanRoots/autoScanOnLaunch)
+      // stay readable for the Rust side while the frontend keys keep working.
+      await invoke('save_scanner_settings', {
+        settings: {
+          ...settings,
+          scanRoots: settings.scan_paths,
+          autoScanOnLaunch: settings.auto_scan,
+        },
+      });
     } finally {
       setSaving(false);
     }
@@ -477,7 +511,7 @@ function ScannerSettingsTab() {
 
   const clearCache = async () => {
     try {
-      await invoke('clear_scan_cache');
+      await invoke('clear_artwork_cache');
     } catch (e) {
       console.error('Failed to clear cache:', e);
     }
@@ -767,10 +801,6 @@ export function Settings({ settings: parentSettings, onSettingsChange, user, def
               <div className="flex items-center gap-3">
                 <input type="checkbox" id="sidebar_collapsed" checked={settings.sidebar_collapsed} onChange={e => update({sidebar_collapsed: e.target.checked})} className="w-4 h-4 accent-cyan-400 rounded" />
                 <label htmlFor="sidebar_collapsed" className="text-sm text-mvo-text">{t('settings.sidebarCollapsed')}</label>
-              </div>
-              <div className="flex items-center gap-3">
-                <input type="checkbox" id="right_panel" checked={settings.right_panel_open} onChange={e => update({right_panel_open: e.target.checked})} className="w-4 h-4 accent-cyan-400 rounded" />
-                <label htmlFor="right_panel" className="text-sm text-mvo-text">{t('settings.rightPanelOpen')}</label>
               </div>
             </div>
           </GlassCard>

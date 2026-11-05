@@ -31,6 +31,7 @@ export const availablePages: PageConfig[] = [
    { id: 'aitools', label: 'AI Tools', icon: '🤖', group: 'tools', description: 'Local & cloud AI assistants' },
    { id: 'webhub', label: 'Web Hub', icon: '🌐', group: 'tools', description: 'Gaming & dev resource links' },
    { id: 'browser', label: 'Browser', icon: '🌍', group: 'tools', description: 'Chromium-powered web browser' },
+   { id: 'streaming', label: 'Streaming', icon: '📡', group: 'tools', description: 'OBS, capture and audio setup' },
    { id: 'functiontest', label: 'Function Test', icon: '🧪', group: 'tools', description: 'Backend command testing' },
    { id: 'updates', label: 'Updates', icon: '🔄', group: 'system', description: 'App updates & version info' },
  ] as const

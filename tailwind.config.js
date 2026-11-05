@@ -24,12 +24,24 @@ export default {
           accentRed: 'var(--mvo-accent-red)',
           accentPurple: '#b366ff',
           accentOrange: '#ff9f1a',
+          crimson: 'var(--mvo-crimson)',
+          crimsonBright: 'var(--mvo-crimson-bright)',
+          crimsonDim: 'var(--mvo-crimson-dim)',
+          crimsonGlow: 'var(--mvo-crimson-glow)',
         }
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
         display: ['Orbitron', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      // Shell metrics mirror the CSS variables in src/index.css so utilities
+      // like `h-footer` / `pb-footer` cannot drift from the real layout.
+      spacing: {
+        footer: 'var(--mvo-footer-height)',
+        hud: 'var(--mvo-hud-height)',
+        sidebar: 'var(--mvo-sidebar-width)',
+        'sidebar-collapsed': 'var(--mvo-sidebar-width-collapsed)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

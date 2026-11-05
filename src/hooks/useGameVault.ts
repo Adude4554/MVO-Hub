@@ -197,7 +197,7 @@ export function useGameVaultLibrary() {
       console.error('Uninstall failed:', e);
       toast.error(`Uninstall failed: ${e}`);
     }
-  }, []);
+  }, [toast]);
 
   const launch = useCallback(async (id: string) => {
     try {
@@ -212,7 +212,7 @@ export function useGameVaultLibrary() {
       sounds.error();
       toast.error(`Failed to launch: ${e}`);
     }
-  }, []);
+  }, [toast]);
 
   const toggleFavorite = useCallback(async (id: string) => {
     try {
@@ -367,7 +367,7 @@ export function useGameVaultDownloads() {
     return () => {
       unsubs.forEach(p => p.then((fn: UnlistenFn) => fn()));
     };
-  }, []);
+  }, [loadDownloads]);
 
   const activeDownloads = downloads.filter(d => d.status === 'downloading');
   const completedDownloads = downloads.filter(d => d.status === 'completed');

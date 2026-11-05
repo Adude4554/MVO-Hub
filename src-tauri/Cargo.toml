@@ -1,6 +1,6 @@
 [package]
 name = "project-mvo-app"
-version = "0.2.13"
+version = "0.2.14"
 description = "Project MVO"
 authors = ["Project MVO"]
 edition = "2021"
@@ -43,6 +43,7 @@ log = "0.4"
 nvml-wrapper = "0.10"
 urlencoding = "2"
 hex = "0.4"
+ed25519-dalek = "2"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
 tauri-plugin-process = "2"

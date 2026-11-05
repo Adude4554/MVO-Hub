@@ -87,7 +87,9 @@ export function useUpdater() {
 
   // Listen for progress events from Rust
   useEffect(() => {
-    const unlisten = listen<UpdateProgress>('update-progress', (event) => {
+    let cancelled = false;
+    let unlisten: UnlistenFn | null = null;
+    listen<UpdateProgress>('update-progress', (event) => {
       setProgress(event.payload);
       const state = event.payload.state;
       if (state) setUpdaterState(state);
@@ -99,13 +101,21 @@ export function useUpdater() {
       } else {
         setVerificationProgress(false);
       }
-    });
-    return () => { unlisten.then((fn: UnlistenFn) => fn()); };
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    }).catch(() => { /* not running under Tauri (web build) */ });
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
   }, []);
 
   // Listen for periodic background check results
   useEffect(() => {
-    const unlisten = listen<string>('update-check-result', (event) => {
+    let cancelled = false;
+    let unlisten: UnlistenFn | null = null;
+    listen<string>('update-check-result', (event) => {
       try {
         const info = JSON.parse(event.payload) as UpdateInfo;
         if (info.available) {
@@ -114,8 +124,14 @@ export function useUpdater() {
           if (info.force) setShowModal(true);
         }
       } catch {}
-    });
-    return () => { unlisten.then((fn: UnlistenFn) => fn()); };
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    }).catch(() => { /* not running under Tauri (web build) */ });
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
   }, []);
 
   // Check on mount

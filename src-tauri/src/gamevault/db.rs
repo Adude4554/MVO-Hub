@@ -20,6 +20,13 @@ impl GameVaultDb {
         let db_path = app_data_dir.join("gamevault.db");
         let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
 
+        // Durability & concurrency: WAL allows concurrent readers during writes;
+        // busy_timeout prevents immediate SQLITE_BUSY under parallel commands;
+        // foreign_keys turns the declared ON DELETE CASCADE constraints on.
+        conn.pragma_update(None, "journal_mode", "WAL").map_err(|e| e.to_string())?;
+        conn.busy_timeout(std::time::Duration::from_millis(5000)).map_err(|e| e.to_string())?;
+        conn.pragma_update(None, "foreign_keys", "ON").map_err(|e| e.to_string())?;
+
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS installed_games (
                 id TEXT PRIMARY KEY,
@@ -440,13 +447,17 @@ impl GameVaultDb {
         let mut rows = stmt.query_map([user_id.to_string()], |row| row.get::<_, String>(0)).map_err(|e| e.to_string())?;
         match rows.next() {
             Some(Ok(hash)) => {
-                // Try argon2 verification first (new format)
-                if let Ok(parsed) = argon2::password_hash::PasswordHash::new(&hash) {
-                    use argon2::password_hash::PasswordVerifier;
-                    return Ok(argon2::Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok());
+                // Argon2 is the only supported hash format (see lib.rs login /
+                // create_account). Do NOT fall back to comparing the stored
+                // hash against the plaintext password — that would authenticate
+                // any row whose hash happens to equal the typed password.
+                match argon2::password_hash::PasswordHash::new(&hash) {
+                    Ok(parsed) => {
+                        use argon2::password_hash::PasswordVerifier;
+                        Ok(argon2::Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok())
+                    }
+                    Err(_) => Ok(false),
                 }
-                // Fallback: plain comparison for legacy SHA-256 hashes
-                Ok(hash == password)
             }
             _ => Ok(false),
         }
@@ -455,23 +466,59 @@ impl GameVaultDb {
     // Scanned Games methods
 
     pub fn save_scanned_games(&self, games: &[ScannedGameRow]) -> Result<(), String> {
-        let conn = self.conn.lock().map_err(|e| e.to_string())?;
-        conn.execute("DELETE FROM scanned_games", []).map_err(|e| e.to_string())?;
+        let mut conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+        // Preserve user-owned state (favorite / hidden / playtime) across rescans:
+        // the DELETE+INSERT below replaces scan results, but these fields are set
+        // by the user after the initial scan and must survive.
+        let mut existing: std::collections::HashMap<String, (bool, bool, i64, Option<String>)> =
+            std::collections::HashMap::new();
+        {
+            let mut stmt = tx
+                .prepare(
+                    "SELECT id, is_favorite, is_hidden, playtime_seconds, last_played FROM scanned_games",
+                )
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i32>(1)? != 0,
+                        row.get::<_, i32>(2)? != 0,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                    ))
+                })
+                .map_err(|e| e.to_string())?;
+            for row in rows {
+                if let Ok((id, fav, hid, play, last)) = row {
+                    existing.insert(id, (fav, hid, play, last));
+                }
+            }
+        }
+
+        tx.execute("DELETE FROM scanned_games", []).map_err(|e| e.to_string())?;
         let now = chrono_now();
         for game in games {
-            conn.execute(
+            let (is_favorite, is_hidden, playtime_seconds, last_played) = existing
+                .get(&game.id)
+                .cloned()
+                .unwrap_or((game.is_favorite, game.is_hidden, game.playtime_seconds, game.last_played.clone()));
+            tx.execute(
                 "INSERT INTO scanned_games (id, name, platform, launcher, install_path, exe_path, app_id, version, cover_path, cover_local, icon_local, install_size, scan_confidence, is_installed, is_favorite, is_hidden, playtime_seconds, last_played, scanned_at, working_dir, launch_args, confidence_reasons, scan_source, drive_letter, metadata_status, last_scan_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)",
                 params![
                     game.id, game.name, game.platform, game.launcher, game.install_path,
                     game.exe_path, game.app_id, game.version, game.cover_path, game.cover_local,
                     game.icon_local, game.install_size, game.scan_confidence, game.is_installed as i32,
-                    game.is_favorite as i32, game.is_hidden as i32, game.playtime_seconds,
-                    game.last_played, now, game.working_dir, game.launch_args,
+                    is_favorite as i32, is_hidden as i32, playtime_seconds,
+                    last_played, now, game.working_dir, game.launch_args,
                     game.confidence_reasons, game.scan_source, game.drive_letter,
                     game.metadata_status, game.last_scan_id,
                 ],
             ).map_err(|e| e.to_string())?;
         }
+        tx.commit().map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -660,4 +707,117 @@ fn chrono_now() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     format!("{}", secs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_db_dir() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "mvo_gv_test_{}_{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    fn sample_row(id: &str, favorite: bool, hidden: bool, playtime: i64) -> ScannedGameRow {
+        ScannedGameRow {
+            id: id.to_string(),
+            name: format!("Game {}", id),
+            platform: "pc".to_string(),
+            launcher: "standalone".to_string(),
+            install_path: format!("C:/Games/{}", id),
+            exe_path: Some(format!("C:/Games/{}/game.exe", id)),
+            app_id: None,
+            version: None,
+            cover_path: None,
+            cover_local: None,
+            icon_local: None,
+            install_size: 1024,
+            scan_confidence: 0.9,
+            is_installed: true,
+            is_favorite: favorite,
+            is_hidden: hidden,
+            playtime_seconds: playtime,
+            last_played: None,
+            scanned_at: chrono_now(),
+            working_dir: None,
+            launch_args: None,
+            confidence_reasons: "[]".to_string(),
+            scan_source: "test".to_string(),
+            drive_letter: "C".to_string(),
+            metadata_status: "none".to_string(),
+            last_scan_id: String::new(),
+        }
+    }
+
+    #[test]
+    fn test_new_db_enables_wal() {
+        let dir = temp_db_dir();
+        let db = GameVaultDb::new(&dir).expect("db should open");
+        let mode: String = {
+            let conn = db.conn.lock().unwrap();
+            conn.query_row("PRAGMA journal_mode", [], |r| r.get(0)).unwrap()
+        };
+        assert_eq!(mode.to_lowercase(), "wal");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_save_scanned_games_preserves_user_state() {
+        let dir = temp_db_dir();
+        let db = GameVaultDb::new(&dir).expect("db should open");
+
+        // Initial scan: nothing is a favorite yet.
+        db.save_scanned_games(&[sample_row("g1", false, false, 0)]).unwrap();
+
+        // User marks it a favorite and accumulates playtime.
+        db.toggle_scanned_game_favorite("g1").unwrap();
+        db.update_scanned_game_playtime("g1", 42).unwrap();
+
+        // A rescan produces a fresh row that does NOT know about the user's
+        // favorite/playtime (the frontend hardcodes false/0 on scan results).
+        db.save_scanned_games(&[sample_row("g1", false, false, 0)]).unwrap();
+
+        let games = db.get_scanned_games().unwrap();
+        assert_eq!(games.len(), 1);
+        assert!(games[0].is_favorite, "favorite must survive a rescan");
+        assert_eq!(games[0].playtime_seconds, 42, "playtime must survive a rescan");
+        assert!(!games[0].is_hidden);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_save_scanned_games_removes_missing_entries() {
+        let dir = temp_db_dir();
+        let db = GameVaultDb::new(&dir).expect("db should open");
+        db.save_scanned_games(&[
+            sample_row("g1", false, false, 0),
+            sample_row("g2", false, false, 0),
+        ])
+        .unwrap();
+        assert_eq!(db.get_scanned_games().unwrap().len(), 2);
+
+        db.save_scanned_games(&[sample_row("g1", false, false, 0)]).unwrap();
+        assert_eq!(db.get_scanned_games().unwrap().len(), 1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_verify_password_rejects_plaintext_hash() {
+        let dir = temp_db_dir();
+        let db = GameVaultDb::new(&dir).expect("db should open");
+        // A row whose stored "hash" equals the typed password must NOT verify —
+        // this is the plaintext-fallback regression test.
+        db.create_user("u", "u@test.local", "hunter2").unwrap();
+        let (id, _, _, _, _) = db.get_user_by_email("u@test.local").unwrap().unwrap();
+        assert!(!db.verify_password(id, "hunter2").unwrap());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

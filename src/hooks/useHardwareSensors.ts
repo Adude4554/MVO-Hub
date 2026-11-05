@@ -204,6 +204,12 @@ export function useHardwareSensors() {
   const cpuCoresPhysical = getSensor('cpu.cores.physical')?.value ?? 0;
   const cpuCoresLogical = getSensor('cpu.cores.logical')?.value ?? 0;
 
+  // Prefer the helper-sourced package temperature; fall back to the approx
+  // sysinfo ACPI/chassis reading when the helper is not running.
+  const cpuTemperatureSensor = getSensor('cpu.temperature') ?? getSensor('cpu.temperature.approx');
+  const cpuTemperature = cpuTemperatureSensor?.value ?? 0;
+  const cpuTemperatureIsApprox = !!getSensor('cpu.temperature.approx') && !getSensor('cpu.temperature');
+
   const gpuUsage = getSensor('gpu.gpu_nvidia_0.usage')?.value ?? 0;
   const gpuTemperature = getSensor('gpu.gpu_nvidia_0.temperature')?.value ?? 0;
   const gpuPower = getSensor('gpu.gpu_nvidia_0.power')?.value ?? 0;
@@ -300,6 +306,8 @@ export function useHardwareSensors() {
     cpuCoresLogical,
     cpuCores,
     cpuDevice: getDevicesByCategory('cpu')[0],
+    cpuTemperature,
+    cpuTemperatureIsApprox,
 
     // Convenience: GPU
     gpuUsage,

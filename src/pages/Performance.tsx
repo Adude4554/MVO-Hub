@@ -89,6 +89,7 @@ export const Performance = React.memo(function Performance({ performance, hardwa
             <DetailRow label={t('dashboard.vram')} value={hs?.gpuVramTotal ? `${(hs.gpuVramTotal / 1e9).toFixed(1)} GB` : 'N/A'} />
             <DetailRow label={t('dashboard.driver')} value={hs?.gpuDevice?.driverVersion || 'N/A'} />
             <DetailRow label={t('dashboard.temp')} value={hs?.gpuTemperature ? `${hs.gpuTemperature.toFixed(0)}°C` : 'N/A'} />
+            <DetailRow label="CPU Temp" value={hs?.cpuTemperature ? `${hs.cpuTemperature.toFixed(0)}°C` : (hs.cpuTemperatureIsApprox ? 'Approx (sysinfo)' : 'N/A')} />
             <DetailRow label={t('perf.usage')} value={hs?.gpuUsage ? `${hs.gpuUsage.toFixed(1)}%` : 'N/A'} />
             <DetailRow label={t('perf.power')} value={hs?.gpuPower ? `${hs.gpuPower.toFixed(0)}W` : 'N/A'} />
             {hs?.gpuFan > 0 && <DetailRow label="Fan Speed" value={`${hs.gpuFan.toFixed(0)}%`} />}

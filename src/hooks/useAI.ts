@@ -24,7 +24,7 @@ export function useAI() {
   const [input, setInput] = useState('');
   const [ollamaRunning, setOllamaRunning] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState('llama3.1');
+  const [selectedModel, setSelectedModel] = useState('nemotron3-super');
   const toast = useToast();
 
   const checkOllama = useCallback(async () => {
@@ -95,7 +95,7 @@ export function useAI() {
       console.error('Failed to delete session:', e);
       toast.error('Failed to delete chat');
     }
-  }, [activeSessionId]);
+  }, [activeSessionId, toast]);
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || loading) return;

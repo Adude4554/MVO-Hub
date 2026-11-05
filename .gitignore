@@ -6,3 +6,37 @@ src-tauri/target/
 *.msi
 *.sig
 .env
+
+# Signing keys must never be committed (rotate any key that ever was).
+*.key
+*.pem
+src-tauri/private.key
+src-tauri/publishers.key
+
+# .NET helper build output
+helpers/**/bin/
+helpers/**/obj/
+
+
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+shell-preview*.png
+
+# ── Cinematic media assets ─────────────────────────────────────────────
+# Ignore every .webm by default so a multi-MB source download can never
+# slip into a release, then explicitly re-include the two optimized VP8
+# clips that v0.2.14 actually ships (~384 KB total).
+# NOTE: the re-include MUST come last — gitignore is last-match-wins.
+*.webm
+!public/assets/hero-bg.webm
+!public/assets/startup.webm
+
+# ── Local scratch output (never committed) ─────────────────────────────
+*.log
+home-*.png
+hero-fallback.png
+splash-*.png
+MVO_Hub_*.pdf

@@ -44,7 +44,11 @@ export const Hardware = React.memo(function Hardware({ hardwareSensors }: any) {
   const fetchHealth = useCallback(async () => {
     try {
       const data = await invoke<HealthData>('get_hardware_health');
-      setHealth(data);
+      // Never let a null/malformed response reach state: the render reads
+      // `health.alerts.length` directly. (Regression: Hardware page crash.)
+      if (data && typeof data === 'object' && Array.isArray((data as HealthData).alerts)) {
+        setHealth(data);
+      }
     } catch (e) {
       console.error('Failed to fetch health:', e);
     }
@@ -53,7 +57,7 @@ export const Hardware = React.memo(function Hardware({ hardwareSensors }: any) {
   const fetchHistory = useCallback(async () => {
     try {
       const data = await invoke<any[]>('get_hardware_history', { count: 60 });
-      setHistoryData(data);
+      setHistoryData(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('Failed to fetch history:', e);
     }
@@ -62,7 +66,7 @@ export const Hardware = React.memo(function Hardware({ hardwareSensors }: any) {
   const fetchRecommendations = useCallback(async () => {
     try {
       const data = await invoke<any>('get_hardware_recommendations');
-      setRecommendations(data.recommendations || []);
+      setRecommendations(Array.isArray(data?.recommendations) ? data.recommendations : []);
     } catch (e) {
       console.error('Failed to fetch recommendations:', e);
     }
@@ -96,6 +100,8 @@ export const Hardware = React.memo(function Hardware({ hardwareSensors }: any) {
   const memPercent = hs?.memTotal > 0 ? (hs.memUsed / hs.memTotal) * 100 : 0;
   const gpuPercent = hs?.gpuUsage ?? 0;
   const gpuTemp = hs?.gpuTemperature ?? 0;
+  const cpuTemp = hs?.cpuTemperature ?? 0;
+  const cpuTempBar = Math.min(Math.max(cpuTemp, 0), 100);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-400';
@@ -119,17 +125,26 @@ export const Hardware = React.memo(function Hardware({ hardwareSensors }: any) {
           <h1 className="font-display text-3xl font-bold bg-gradient-to-r from-cyan-400 to-green-500 bg-clip-text text-transparent">Hardware Monitor</h1>
           <p className="text-mvo-textDim mt-1">Real-time sensor data from NVML, sysinfo & WMI</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={saveSnapshot}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg hover:bg-cyan-500/30 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
-            Save Snapshot
-          </button>
-          {lastSaved && <span className="text-xs text-mvo-textDim">Last saved: {lastSaved}</span>}
-        </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveSnapshot}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg hover:bg-cyan-500/30 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
+              Save Snapshot
+            </button>
+            <button
+              onClick={async () => {
+                try { await invoke('enable_cpu_temperature'); } catch (e) { console.error('Failed to enable CPU temperature:', e); }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors"
+            >
+              <Thermometer className="w-4 h-4" />
+              Enable CPU Temp
+            </button>
+            {lastSaved && <span className="text-xs text-mvo-textDim">Last saved: {lastSaved}</span>}
+          </div>
       </div>
 
       {/* Health Score */}
@@ -187,6 +202,20 @@ export const Hardware = React.memo(function Hardware({ hardwareSensors }: any) {
             <span>{hs?.cpuFrequency ? `${hs.cpuFrequency.toFixed(0)} MHz` : ''}</span>
           </div>
         </GlassCard>
+
+        {hs.cpuTemperatureIsApprox || cpuTemp > 0 ? (
+          <GlassCard className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <Thermometer className="w-5 h-5 text-red-400" />
+              <span className="font-semibold text-sm">CPU Temp</span>
+            </div>
+            <div className={`text-3xl font-bold font-mono ${cpuTemp > 85 ? 'text-red-400' : cpuTemp > 75 ? 'text-amber-400' : 'text-cyan-400'}`}>{cpuTemp > 0 ? `${cpuTemp.toFixed(0)}°C` : '--'}</div>
+            <div className="text-xs text-mvo-textDim mt-1">{hs.cpuTemperatureIsApprox ? 'Approx (sysinfo)' : 'Helper (LibreHardwareMonitor)'}</div>
+              <div className="h-2 bg-mvo-bg rounded-full mt-3 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-400 to-red-600 rounded-full transition-all duration-300" style={{ width: `${cpuTempBar}%` }} />
+              </div>
+          </GlassCard>
+        ) : null}
 
         <GlassCard className="p-4">
           <div className="flex items-center gap-3 mb-3">

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { Cpu, HardDrive, MemoryStick, Wifi, ArrowDown, ArrowUp, Info as InfoIcon, AlertTriangle as AlertTriangleIcon, CheckCircle as CheckCircleIcon } from 'lucide-react';
+import { ShieldCheck, Zap, Gem, Cpu, MemoryStick, HardDrive, Wifi } from 'lucide-react';
+import pkg from '../../package.json';
 
-interface BottomBarProps {
-  performance: any;
-  hardwareSensors: any;
-  windowState: string;
-}
+/**
+ * Build-time app version, injected from package.json so the UI can never drift
+ * from the package manifest. In a packaged Tauri build `getVersion()` takes
+ * precedence; this covers web / test builds where the API is unavailable.
+ */
+const BUILD_VERSION: string = pkg.version;
 
 function formatSpeed(bytesPerSec: number): string {
   if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
@@ -14,60 +16,120 @@ function formatSpeed(bytesPerSec: number): string {
   return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
 }
 
-export function BottomBar({ performance, hardwareSensors, windowState }: BottomBarProps) {
-  const [version, setVersion] = useState('...');
-  useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
+interface StatusFooterProps {
+  performance?: any;
+  hardwareSensors?: any;
+  /** Optional override for the connection/health indicator. */
+  ready?: boolean;
+}
+
+export function BottomBar({ performance, hardwareSensors, ready = true }: StatusFooterProps) {
+  const [version, setVersion] = useState(BUILD_VERSION);
+
+  useEffect(() => {
+    let cancelled = false;
+    getVersion()
+      .then((v) => {
+        if (!cancelled && v) setVersion(v);
+      })
+      .catch(() => {
+        /* not running under Tauri — keep the build fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const hs = hardwareSensors;
-  const cpuPercent = hs?.cpuUsage?.toFixed(1) || performance?.snapshot?.cpu_usage?.toFixed(1) || '0';
-  const memPercent = hs?.memTotal > 0 ? ((hs.memUsed / hs.memTotal) * 100).toFixed(1) : performance?.snapshot && performance.snapshot.total_memory > 0 ? ((performance.snapshot.used_memory / performance.snapshot.total_memory) * 100).toFixed(1) : '0';
-  const diskPercent = performance?.snapshot && performance.snapshot.total_storage > 0 ? ((performance.snapshot.used_storage / performance.snapshot.total_storage) * 100).toFixed(1) : '0';
+  const snap = performance?.snapshot;
 
-  const totalRx = hs?.networkSpeeds?.reduce((sum: number, n: any) => sum + (n.receivedRate || 0), 0) || 0;
-  const totalTx = hs?.networkSpeeds?.reduce((sum: number, n: any) => sum + (n.transmittedRate || 0), 0) || 0;
+  const cpuPercent =
+    typeof hs?.cpuUsage === 'number'
+      ? hs.cpuUsage
+      : typeof snap?.cpu_usage === 'number'
+        ? snap.cpu_usage
+        : null;
+  const memPercent =
+    hs?.memTotal > 0
+      ? (hs.memUsed / hs.memTotal) * 100
+      : snap?.total_memory > 0
+        ? (snap.used_memory / snap.total_memory) * 100
+        : null;
+  const diskPercent =
+    snap?.total_storage > 0 ? (snap.used_storage / snap.total_storage) * 100 : null;
+  const totalRx = (hs?.networkSpeeds || []).reduce(
+    (sum: number, n: any) => sum + (n.receivedRate || 0),
+    0,
+  );
 
-  const statusItems = [
-    { label: 'CPU', value: `${cpuPercent}%`, icon: <Cpu className="w-4 h-4" />, color: 'text-cyan-400' },
-    { label: 'RAM', value: `${memPercent}%`, icon: <MemoryStick className="w-4 h-4" />, color: 'text-purple-400' },
-    { label: 'Disk', value: `${diskPercent}%`, icon: <HardDrive className="w-4 h-4" />, color: 'text-amber-400' },
-    { label: 'GPU', value: hs?.gpuUsage ? `${hs.gpuUsage.toFixed(0)}%` : '--', icon: <Cpu className="w-4 h-4" />, color: 'text-green-400' },
-    { label: 'NET', value: `${formatSpeed(totalRx)} / ${formatSpeed(totalTx)}`, icon: <Wifi className="w-4 h-4" />, color: 'text-blue-400' },
+  const telemetry = [
+    { key: 'cpu', icon: Cpu, value: cpuPercent === null ? '--' : `${cpuPercent.toFixed(0)}%` },
+    { key: 'ram', icon: MemoryStick, value: memPercent === null ? '--' : `${memPercent.toFixed(0)}%` },
+    { key: 'disk', icon: HardDrive, value: diskPercent === null ? '--' : `${diskPercent.toFixed(0)}%` },
+    { key: 'net', icon: Wifi, value: formatSpeed(totalRx) },
   ];
 
   return (
-    <footer className="h-10 bg-mvo-panel/80 backdrop-blur-xl border-t border-mvo-border/50 flex items-center justify-between px-4 z-50">
-      <div className="flex items-center gap-4 text-xs">
-        <span className="px-2 py-0.5 bg-cyan-400/20 text-cyan-400 rounded-full font-mono text-[10px] uppercase tracking-wider">
-          MVO Hub
-        </span>
-        <span className="text-mvo-textMuted font-mono">|</span>
-        <span className="text-mvo-textDim font-mono">
-          {windowState === 'maximized' ? 'MAXIMIZED' : windowState === 'fullscreen' ? 'FULLSCREEN' : 'WINDOWED'}
-        </span>
+    <footer
+      data-testid="status-footer"
+      className="relative z-50 flex h-footer shrink-0 items-center justify-between gap-4 border-t border-white/[0.07] bg-[#050812] px-5"
+    >
+      {/* ── Left: version + readiness ── */}
+      <div className="flex min-w-0 items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            data-testid="footer-status-dot"
+            className={[
+              'h-2 w-2 rounded-full',
+              ready
+                ? 'bg-emerald-400 shadow-[0_0_8px_1px_rgba(52,211,153,0.7)]'
+                : 'bg-amber-400 shadow-[0_0_8px_1px_rgba(251,191,36,0.6)]',
+            ].join(' ')}
+          />
+          <span
+            data-testid="footer-version"
+            className="whitespace-nowrap text-[11px] font-medium text-white/55"
+          >
+            MVO Hub v{version} <span className="text-white/20">|</span>{' '}
+            <span className={ready ? 'text-emerald-400/90' : 'text-amber-400/90'}>
+              {ready ? 'Ready' : 'Connecting'}
+            </span>
+          </span>
+        </div>
+
+        {/* Live telemetry (kept from the legacy bar, restyled) */}
+        <div className="hidden items-center gap-3 border-l border-white/[0.07] pl-4 md:flex">
+          {telemetry.map(({ key, icon: Icon, value }) => (
+            <span
+              key={key}
+              className="flex items-center gap-1.5 text-[10.5px] tabular-nums text-white/35"
+              title={key.toUpperCase()}
+            >
+              <Icon className="h-3 w-3 text-white/25" />
+              {value}
+            </span>
+          ))}
+        </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center gap-6">
-        {statusItems.map((item, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <span className={`${item.color}`}>{item.icon}</span>
-            <span className="text-mvo-textDim font-medium">{item.label}</span>
-            <span className="font-mono text-mvo-text tabular-nums">{item.value}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-3 text-xs">
-        <span className="text-mvo-textMuted font-mono">v{version}</span>
-        <span className="text-mvo-textDim font-mono">|</span>
-        <button className="flex items-center gap-1 text-mvo-textDim hover:text-cyan-400 transition-colors p-1 rounded" title="Diagnostics">
-          <InfoIcon className="w-3.5 h-3.5" />
-        </button>
-        <button className="flex items-center gap-1 text-mvo-textDim hover:text-amber-400 transition-colors p-1 rounded" title="Notifications">
-          <AlertTriangleIcon className="w-3.5 h-3.5" />
-        </button>
-        <button className="flex items-center gap-1 text-mvo-textDim hover:text-green-400 transition-colors p-1 rounded" title="System OK">
-          <CheckCircleIcon className="w-3.5 h-3.5" />
-        </button>
+      {/* ── Right: brand indicators ── */}
+      <div className="flex shrink-0 items-center gap-4">
+        <span data-testid="indicator-secure" className="flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-[10.5px] font-medium text-white/40">Secure</span>
+        </span>
+        <span data-testid="indicator-fast" className="flex items-center gap-1.5">
+          <Zap className="h-3.5 w-3.5 fill-amber-400/80 text-amber-400" />
+          <span className="text-[10.5px] font-medium text-white/40">Fast</span>
+        </span>
+        <span data-testid="indicator-modern" className="flex items-center gap-1.5">
+          <Gem className="h-3.5 w-3.5 text-sky-400" />
+          <span className="text-[10.5px] font-medium text-white/40">Modern</span>
+        </span>
+        <span className="text-white/15">|</span>
+        <span data-testid="indicator-powered" className="text-[10.5px] font-medium text-white/35">
+          Powered by <span className="font-semibold text-white/55">MVO</span>
+        </span>
       </div>
     </footer>
   );

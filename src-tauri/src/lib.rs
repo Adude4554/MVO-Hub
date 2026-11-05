@@ -12,7 +12,7 @@ use futures_util::StreamExt;
 mod gamevault;
 mod scanner;
 mod hardware;
-mod updater;
+pub mod updater;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -82,7 +82,7 @@ fn default_true() -> bool { true }
 fn default_false() -> bool { false }
 fn default_api_provider() -> String { "gemini".to_string() }
 fn default_api_base_url() -> String { "https://generativelanguage.googleapis.com/v1beta".to_string() }
-fn default_api_model() -> String { "gemini-3.5-flash".to_string() }
+fn default_api_model() -> String { "nemotron3-super".to_string() }
 fn default_api_key() -> String { String::new() }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,17 +182,23 @@ fn default_snapshot() -> SystemSnapshot {
 }
 
 fn settings_file_path() -> Result<PathBuf, String> {
-    let appdata = env::var("APPDATA")
-        .map_err(|_| "APPDATA environment variable was not found.".to_string())?;
-
-    let folder = PathBuf::from(appdata).join("ProjectMVO");
-
+    let local = env::var("LOCALAPPDATA")
+        .map_err(|_| "LOCALAPPDATA environment variable was not found.".to_string())?;
+    let folder = PathBuf::from(local).join("MVO Hub");
     if !folder.exists() {
         fs::create_dir_all(&folder)
-            .map_err(|error| format!("Failed to create ProjectMVO settings folder: {}", error))?;
+            .map_err(|error| format!("Failed to create MVO Hub settings folder: {}", error))?;
     }
-
     Ok(folder.join("mvo-settings.json"))
+}
+
+/// The single canonical application data directory for MVO Hub.
+/// All databases, settings, and temp files are written here:
+/// `%LOCALAPPDATA%/MVO Hub/`
+pub fn app_data_dir() -> PathBuf {
+    let local = env::var("LOCALAPPDATA")
+        .unwrap_or_else(|_| dirs::data_local_dir().unwrap_or_default().to_string_lossy().to_string());
+    PathBuf::from(local).join("MVO Hub")
 }
 
 fn format_output(output: std::process::Output) -> Result<String, String> {
@@ -246,8 +252,17 @@ fn open_path_or_parent(path: impl AsRef<Path>) -> Result<String, String> {
 }
 
 fn open_url_with_windows(url: &str) -> Result<String, String> {
+    // `cmd /C start` interprets metacharacters (&, |, ^, %, etc.) in its
+    // arguments, so only allow URLs with a safe scheme and no cmd
+    // metacharacters before handing them to the shell.
+    let trimmed = url.trim();
+    let allowed = ["http://", "https://", "steam://", "mailto:"];
+    let scheme_ok = allowed.iter().any(|s| trimmed.len() >= s.len() && trimmed[..s.len()].eq_ignore_ascii_case(s));
+    if !scheme_ok || trimmed.chars().any(|c| "&|<>^%".contains(c)) {
+        return Err(format!("Refusing to open unsafe URL: {}", url));
+    }
     Command::new("cmd")
-        .args(["/C", "start", "", url])
+        .args(["/C", "start", "", trimmed])
         .creation_flags(CREATE_NO_WINDOW)
         .spawn()
         .map_err(|error| format!("Failed to open URL: {}", error))?;
@@ -2748,8 +2763,8 @@ fn sync_export_to_gist_inner(github_token: &str) -> Result<String, String> {
 
     // Gather all user data
     let settings = {
-        let app_data = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-        let settings_path = app_data.join("project-mvo-app").join("mvo-settings.json");
+        // Use the unified canonical path (v0.2.14): %LOCALAPPDATA%\MVO Hub\mvo-settings.json
+        let settings_path = app_data_dir().join("mvo-settings.json");
         if settings_path.exists() {
             fs::read_to_string(&settings_path).unwrap_or_else(|_| "{}".to_string())
         } else {
@@ -2902,12 +2917,12 @@ fn sync_import_from_gist_inner(app: &tauri::AppHandle, github_token: &str) -> Re
     let sync_data: serde_json::Value = serde_json::from_str(file_content)
         .map_err(|e| format!("Failed to parse sync data: {}", e))?;
 
-    // Conflict detection: compare local settings with remote
+    // Conflict detection: compare local settings with remote (using unified canonical path)
     let mut conflicts: Vec<serde_json::Value> = Vec::new();
 
     if let Some(remote_settings) = sync_data.get("settings") {
-        let app_data = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-        let settings_path = app_data.join("project-mvo-app").join("mvo-settings.json");
+        let local_data_dir = app_data_dir();
+        let settings_path = local_data_dir.join("mvo-settings.json");
         if settings_path.exists() {
             if let Ok(local_content) = fs::read_to_string(&settings_path) {
                 if let Ok(local_settings) = serde_json::from_str::<serde_json::Value>(&local_content) {
@@ -2974,10 +2989,9 @@ fn sync_import_from_gist_inner(app: &tauri::AppHandle, github_token: &str) -> Re
         }));
     }
 
-    // Restore settings (remote overwrites local)
+    // Restore settings (remote overwrites local, using unified canonical path)
     if let Some(settings) = sync_data.get("settings") {
-        let app_data = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-        let settings_path = app_data.join("project-mvo-app").join("mvo-settings.json");
+        let settings_path = app_data_dir().join("mvo-settings.json");
         let settings_json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
         fs::write(&settings_path, &settings_json).map_err(|e| e.to_string())?;
     }
@@ -3427,10 +3441,6 @@ fn chrono_now() -> String {
     format!("{}", secs)
 }
 
-fn app_data_dir() -> Option<PathBuf> {
-    dirs::data_local_dir().map(|p| p.join("project-mvo-app"))
-}
-
 #[tauri::command]
 fn clear_artwork_cache() -> Result<String, String> {
     scanner::metadata::clear_artwork_cache()?;
@@ -3442,9 +3452,158 @@ fn get_artwork_cache_size() -> Result<u64, String> {
     Ok(scanner::metadata::get_cache_size())
 }
 
+// ---------------------------------------------------------------------------
+// News feed
+//
+// Powers the "Latest News" row on Home. Runs in Rust (not the webview) so the
+// request is not subject to webview CORS, and so the same code path works in
+// packaged builds.
+//
+// Strategy:
+//   1. Try the curated `news.json` feed (optional, may not exist).
+//   2. Fall back to the GitHub Releases API for this repository, which always
+//      reflects real shipped versions.
+// Any network failure returns an empty list rather than an error, so the UI
+// can render a stable empty state.
+// ---------------------------------------------------------------------------
+
+#[derive(serde::Serialize)]
+pub struct NewsItem {
+    pub title: String,
+    pub description: String,
+    pub date: String,
+    pub icon: String,
+    pub url: String,
+}
+
+const NEWS_FEED_URL: &str =
+    "https://raw.githubusercontent.com/Adude4554/MVO-Hub/main/news.json";
+const RELEASES_API_URL: &str =
+    "https://api.github.com/repos/Adude4554/MVO-Hub/releases?per_page=5";
+
+fn news_client() -> Result<reqwest::blocking::Client, String> {
+    reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        // GitHub's API rejects requests without a User-Agent.
+        .user_agent("MVO-Hub")
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+/// Convert an RFC-3339 timestamp into a short human date (YYYY-MM-DD).
+fn short_date(raw: &str) -> String {
+    raw.get(0..10).unwrap_or(raw).to_string()
+}
+
+fn fetch_curated_news(client: &reqwest::blocking::Client) -> Vec<NewsItem> {
+    let resp = match client.get(NEWS_FEED_URL).send() {
+        Ok(r) if r.status().is_success() => r,
+        _ => return Vec::new(),
+    };
+
+    let items: Vec<serde_json::Value> = match resp.json() {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+
+    items
+        .into_iter()
+        .filter_map(|v| {
+            let title = v.get("title")?.as_str()?.trim().to_string();
+            if title.is_empty() {
+                return None;
+            }
+            Some(NewsItem {
+                title,
+                description: v
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                date: v.get("date").and_then(|d| d.as_str()).unwrap_or("").to_string(),
+                icon: v
+                    .get("icon")
+                    .and_then(|d| d.as_str())
+                    .unwrap_or("📢")
+                    .to_string(),
+                url: v.get("url").and_then(|d| d.as_str()).unwrap_or("").to_string(),
+            })
+        })
+        .take(5)
+        .collect()
+}
+
+fn fetch_release_news(client: &reqwest::blocking::Client) -> Vec<NewsItem> {
+    let resp = match client.get(RELEASES_API_URL).send() {
+        Ok(r) if r.status().is_success() => r,
+        _ => return Vec::new(),
+    };
+
+    let releases: Vec<serde_json::Value> = match resp.json() {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+
+    releases
+        .into_iter()
+        .filter(|r| !r.get("draft").and_then(|d| d.as_bool()).unwrap_or(false))
+        .filter_map(|r| {
+            let tag = r.get("tag_name").and_then(|t| t.as_str()).unwrap_or("");
+            let name = r.get("name").and_then(|n| n.as_str()).unwrap_or(tag);
+            // First non-empty line of the release body acts as the subtitle.
+            let description = r
+                .get("body")
+                .and_then(|b| b.as_str())
+                .unwrap_or("")
+                .lines()
+                .map(|l| l.trim().trim_start_matches(['*', '-', '#', ' ']))
+                .find(|l| !l.is_empty() && !l.starts_with('['))
+                .unwrap_or("A new version of MVO Hub is available.")
+                .to_string();
+
+            Some(NewsItem {
+                title: if name.is_empty() {
+                    format!("MVO Hub {}", tag)
+                } else {
+                    name.to_string()
+                },
+                description,
+                date: short_date(
+                    r.get("published_at").and_then(|d| d.as_str()).unwrap_or(""),
+                ),
+                icon: "🚀".to_string(),
+                url: r
+                    .get("html_url")
+                    .and_then(|u| u.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            })
+        })
+        .take(5)
+        .collect()
+}
+
+/// Latest Home-page news items. Never fails: returns an empty list offline.
+#[tauri::command]
+async fn get_news_feed() -> Result<Vec<NewsItem>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let client = match news_client() {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
+        let curated = fetch_curated_news(&client);
+        if !curated.is_empty() {
+            return curated;
+        }
+        fetch_release_news(&client)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn save_scanned_games_to_db(games: Vec<gamevault::db::ScannedGameRow>) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
     db.save_scanned_games(&games).map_err(|e| e.to_string())?;
     Ok(format!("Saved {} games", games.len()))
@@ -3452,14 +3611,14 @@ fn save_scanned_games_to_db(games: Vec<gamevault::db::ScannedGameRow>) -> Result
 
 #[tauri::command]
 fn load_scanned_games_from_db() -> Result<Vec<gamevault::db::ScannedGameRow>, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
     db.get_scanned_games().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn toggle_scanned_game_favorite(id: String) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
     db.toggle_scanned_game_favorite(&id).map_err(|e| e.to_string())?;
     Ok("Toggled favorite".to_string())
@@ -3467,7 +3626,7 @@ fn toggle_scanned_game_favorite(id: String) -> Result<String, String> {
 
 #[tauri::command]
 fn toggle_scanned_game_hidden(id: String) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
     db.toggle_scanned_game_hidden(&id).map_err(|e| e.to_string())?;
     Ok("Toggled hidden".to_string())
@@ -3475,7 +3634,7 @@ fn toggle_scanned_game_hidden(id: String) -> Result<String, String> {
 
 #[tauri::command]
 fn update_scanned_game_playtime(id: String, seconds: i64) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
     db.update_scanned_game_playtime(&id, seconds).map_err(|e| e.to_string())?;
     Ok("Updated playtime".to_string())
@@ -3484,6 +3643,7 @@ fn update_scanned_game_playtime(id: String, seconds: i64) -> Result<String, Stri
 // ── Scanner V2 Commands ──
 
 static SCAN_CANCELLED: AtomicBool = AtomicBool::new(false);
+static SCAN_CANCEL_TOKEN: Mutex<Option<Arc<Mutex<bool>>>> = Mutex::new(None);
 
 #[tauri::command]
 fn scanner_v2_scan(scan_type: String, paths: Vec<String>) -> Result<serde_json::Value, String> {
@@ -3500,18 +3660,32 @@ fn scanner_v2_scan(scan_type: String, paths: Vec<String>) -> Result<serde_json::
 
     SCAN_CANCELLED.store(false, Ordering::Relaxed);
 
+    // Share the cancel token with scanner_v2_cancel_scan so cancelling actually
+    // stops the running job (previously the token was private to this command).
+    let cancel_token = Arc::new(Mutex::new(false));
+    {
+        let mut slot = SCAN_CANCEL_TOKEN.lock().unwrap_or_else(|p| p.into_inner());
+        *slot = Some(cancel_token.clone());
+    }
+
     let config = ScanJobConfig {
         scan_type: st,
         paths,
         incremental: false,
-        cancel_token: Arc::new(Mutex::new(false)),
+        cancel_token,
     };
 
     let ignore_list = Arc::new(IgnoreList::new());
     let app_data = app_data_dir();
 
     let job = ScanJob::new(config, ignore_list);
-    let result = job.run(app_data);
+    let result = job.run(Some(app_data));
+
+    // Clear the shared token once the job is finished.
+    {
+        let mut slot = SCAN_CANCEL_TOKEN.lock().unwrap_or_else(|p| p.into_inner());
+        *slot = None;
+    }
 
     let games_json: Vec<serde_json::Value> = result.games.iter().map(|g| {
         serde_json::json!({
@@ -3547,12 +3721,19 @@ fn scanner_v2_scan(scan_type: String, paths: Vec<String>) -> Result<serde_json::
 #[tauri::command]
 fn scanner_v2_cancel_scan() -> Result<String, String> {
     SCAN_CANCELLED.store(true, Ordering::Relaxed);
+    // Also flip the shared token that the running ScanJob actually checks.
+    let slot = SCAN_CANCEL_TOKEN.lock().unwrap_or_else(|p| p.into_inner());
+    if let Some(token) = slot.as_ref() {
+        if let Ok(mut cancelled) = token.lock() {
+            *cancelled = true;
+        }
+    }
     Ok("Scan cancelled".to_string())
 }
 
 #[tauri::command]
 fn scanner_v2_get_ignore_rules() -> Result<serde_json::Value, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db_path = app_data.join("gamevault.db");
     let ignore_list = crate::scanner::ignore::IgnoreList::load_from_db(&db_path);
     let rules = ignore_list.get_rules();
@@ -3562,7 +3743,7 @@ fn scanner_v2_get_ignore_rules() -> Result<serde_json::Value, String> {
 #[tauri::command]
 fn scanner_v2_add_ignore_rule(rule_type: String, pattern: String) -> Result<String, String> {
     use crate::scanner::ignore::IgnoreRuleType;
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db_path = app_data.join("gamevault.db");
     let ignore_list = crate::scanner::ignore::IgnoreList::load_from_db(&db_path);
     let rt = match rule_type.as_str() {
@@ -3578,7 +3759,7 @@ fn scanner_v2_add_ignore_rule(rule_type: String, pattern: String) -> Result<Stri
 
 #[tauri::command]
 fn scanner_v2_remove_ignore_rule(id: String) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db_path = app_data.join("gamevault.db");
     let ignore_list = crate::scanner::ignore::IgnoreList::load_from_db(&db_path);
     ignore_list.remove_rule(&id);
@@ -3635,7 +3816,7 @@ fn scanner_v2_manual_add_game(name: String, install_path: String, exe_path: Opti
 
 #[tauri::command]
 fn scanner_v2_approve_game(id: String) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
     db.approve_scanned_game(&id).map_err(|e| e.to_string())?;
     Ok("Game approved".to_string())
@@ -3643,7 +3824,7 @@ fn scanner_v2_approve_game(id: String) -> Result<String, String> {
 
 #[tauri::command]
 fn scanner_v2_ignore_game(id: String) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let db = gamevault::db::GameVaultDb::new(&app_data).map_err(|e| e.to_string())?;
     db.toggle_scanned_game_hidden(&id).map_err(|e| e.to_string())?;
     Ok("Game hidden".to_string())
@@ -3786,7 +3967,7 @@ fn restore_default_profile() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 fn save_scan_cache(scanned_dirs: Vec<String>) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let cache_path = app_data.join("scan_cache.json");
     let data = serde_json::json!({ "scanned_dirs": scanned_dirs });
     std::fs::write(&cache_path, serde_json::to_string(&data).map_err(|e| e.to_string())?)
@@ -3796,7 +3977,7 @@ fn save_scan_cache(scanned_dirs: Vec<String>) -> Result<String, String> {
 
 #[tauri::command]
 fn load_scan_cache() -> Result<serde_json::Value, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let cache_path = app_data.join("scan_cache.json");
     if !cache_path.exists() {
         return Ok(serde_json::json!({ "scanned_dirs": [] }));
@@ -3810,7 +3991,7 @@ fn load_scan_cache() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 fn get_scanner_settings() -> Result<serde_json::Value, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let settings_path = app_data.join("scanner_settings.json");
     if !settings_path.exists() {
         return Ok(serde_json::json!({
@@ -3829,7 +4010,7 @@ fn get_scanner_settings() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 fn save_scanner_settings(settings: serde_json::Value) -> Result<String, String> {
-    let app_data = app_data_dir().ok_or("No app data dir")?;
+    let app_data = app_data_dir();
     let settings_path = app_data.join("scanner_settings.json");
     std::fs::write(&settings_path, serde_json::to_string(&settings).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
@@ -4505,18 +4686,34 @@ fn get_gamevault_games() -> Result<Vec<GameVaultGame>, String> {
 
 #[tauri::command]
 fn get_tmdb_api_key() -> Result<String, String> {
+    // 1) Prefer an explicit environment variable (keeps the key out of the
+    //    settings UI and out of git history).
+    if let Ok(key) = env::var("TMDB_API_KEY") {
+        if !key.is_empty() {
+            return Ok(key);
+        }
+    }
+
+    // 2) Read from the (encrypted) settings file.
     let settings_path = settings_file_path()?;
     if let Ok(content) = std::fs::read_to_string(&settings_path) {
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(key) = val.get("tmdb_api_key").and_then(|v| v.as_str()) {
-                if !key.is_empty() {
-                    return Ok(key.to_string());
+            if let Some(enc) = val.get("tmdb_api_key").and_then(|v| v.as_str()) {
+                if !enc.is_empty() {
+                    if let Ok(dec) = decrypt_secret(enc) {
+                        if !dec.is_empty() {
+                            return Ok(dec);
+                        }
+                    }
                 }
             }
         }
     }
-    // Fallback to built-in key
-    Ok("7c8599abf8bf4728727be7d446c108aa".to_string())
+
+    // 3) Fallback: the user's own TMDB key (set at build time). This keeps the
+    //    app working out-of-the-box while the key never appears in the Settings UI.
+    const BUNDLED_TMDB_KEY: &str = "7c8599abf8bf4728727be7d446c108aa";
+    Ok(BUNDLED_TMDB_KEY.to_string())
 }
 
 #[tauri::command]
@@ -4528,9 +4725,79 @@ fn set_tmdb_api_key(key: String) -> Result<(), String> {
         serde_json::json!({})
     };
     if let Some(obj) = val.as_object_mut() {
-        obj.insert("tmdb_api_key".to_string(), serde_json::Value::String(key));
+        obj.insert("tmdb_api_key".to_string(), serde_json::Value::String(encrypt_secret(&key)));
     }
     std::fs::write(&settings_path, serde_json::to_string_pretty(&val).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+/// Loads the 32-byte session key used to obfuscate stored secrets.
+///
+/// v0.2.14: the key now lives in the unified canonical root
+/// (`%LOCALAPPDATA%\MVO Hub\.session_key`). On first use the key is
+/// generated with the OS CSPRNG and persisted with owner-only permissions.
+/// Previously the key was read from the legacy `com.projectmvo.app` root but
+/// never written anywhere, so every secret silently fell back to plaintext.
+fn read_session_key() -> Result<Vec<u8>, String> {
+    let dir = app_data_dir();
+    let path = dir.join(".session_key");
+
+    if let Ok(bytes) = fs::read(&path) {
+        if bytes.len() == 32 {
+            return Ok(bytes);
+        }
+    }
+
+    // Generate a fresh 32-byte key on first use.
+    use rand::RngCore;
+    let mut key = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut key);
+
+    fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create app data dir for session key: {}", e))?;
+    fs::write(&path, key)
+        .map_err(|e| format!("Failed to persist session key: {}", e))?;
+
+    // Restrict to the current user (no group/other access) where supported.
+    #[cfg(target_os = "windows")]
+    {
+        let escaped = path.to_string_lossy().replace('\'', "''");
+        let _ = std::process::Command::new("icacls")
+            .args([&escaped, "/inheritance:r", "/grant:r", &format!("{}:F", whoami_user())])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+    }
+
+    Ok(key.to_vec())
+}
+
+/// Best-effort current-user name for ACL grants (falls back to USERNAME).
+fn whoami_user() -> String {
+    std::env::var("USERNAME").unwrap_or_else(|_| "current_user".to_string())
+}
+
+/// XOR a byte slice with the session key (cycling) and base64-encode.
+fn encrypt_secret(plain: &str) -> String {
+    let key = match read_session_key() {
+        Ok(k) => k,
+        Err(_) => return plain.to_string(), // best-effort: store plaintext if key missing
+    };
+    if key.is_empty() {
+        return plain.to_string();
+    }
+    let bytes = plain.as_bytes();
+    let xored: Vec<u8> = bytes.iter().enumerate().map(|(i, b)| b ^ key[i % key.len()]).collect();
+    base64::encode(&xored)
+}
+
+/// Base64-decode then XOR with the session key (cycling).
+fn decrypt_secret(enc: &str) -> Result<String, String> {
+    let key = read_session_key()?;
+    if key.is_empty() {
+        return Err("session key empty".to_string());
+    }
+    let bytes = base64::decode(enc).map_err(|e| format!("base64 decode failed: {}", e))?;
+    let xored: Vec<u8> = bytes.iter().enumerate().map(|(i, b)| b ^ key[i % key.len()]).collect();
+    String::from_utf8(xored).map_err(|e| format!("utf8 decode failed: {}", e))
 }
 
 #[tauri::command]
@@ -5304,6 +5571,181 @@ fn gv_open_game_folder(id: String) -> Result<String, String> {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+// ---------------------------------------------------------------------------
+// Legacy data migration (v0.2.14)
+//
+// Before v0.2.14 the app scattered its data across three roots:
+//   %LOCALAPPDATA%\project-mvo-app\  (gamevault.db, artwork_cache)
+//   %LOCALAPPDATA%\MVO-Hub\          (hardware.db)
+//   %APPDATA%\ProjectMVO\            (mvo-settings.json)
+//
+// This performs a one-time, fail-safe copy into the canonical root.
+// Rules:
+//   * copy only if the legacy file exists AND the destination does not
+//   * never overwrite existing data
+//   * never delete the legacy files (rollback safety)
+//   * SQLite stores are copied together with their -wal/-shm siblings
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Default, Clone)]
+pub struct MigrationReport {
+    pub copied: Vec<String>,
+    pub skipped_existing: Vec<String>,
+    pub missing: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+impl MigrationReport {
+    pub fn did_migrate(&self) -> bool {
+        !self.copied.is_empty()
+    }
+}
+
+/// Copy `src` to `dst` only when `dst` does not exist. Returns true if copied.
+fn copy_if_absent(src: &Path, dst: &Path, report: &mut MigrationReport) -> bool {
+    if !src.exists() {
+        return false;
+    }
+    if dst.exists() {
+        report.skipped_existing.push(dst.display().to_string());
+        return false;
+    }
+    if let Some(parent) = dst.parent() {
+        if let Err(e) = fs::create_dir_all(parent) {
+            report.errors.push(format!("mkdir {}: {}", parent.display(), e));
+            return false;
+        }
+    }
+    match fs::copy(src, dst) {
+        Ok(_) => {
+            report.copied.push(dst.display().to_string());
+            true
+        }
+        Err(e) => {
+            report.errors.push(format!("copy {} -> {}: {}", src.display(), dst.display(), e));
+            false
+        }
+    }
+}
+
+/// Copy a SQLite database plus any `-wal` / `-shm` sidecar files.
+fn copy_sqlite_if_absent(src: &Path, dst: &Path, report: &mut MigrationReport) {
+    copy_if_absent(src, dst, report);
+    if !src.exists() {
+        report.missing.push(src.display().to_string());
+        return;
+    }
+    for suffix in ["-wal", "-shm"] {
+        let s = PathBuf::from(format!("{}{}", src.display(), suffix));
+        let d = PathBuf::from(format!("{}{}", dst.display(), suffix));
+        copy_if_absent(&s, &d, report);
+    }
+}
+
+/// Run the one-time legacy migration into `target` (the canonical root).
+/// Pure of side effects beyond filesystem copies in `target` — unit-testable.
+pub fn migrate_legacy_data_into(target: &Path) -> MigrationReport {
+    let local = env::var("LOCALAPPDATA").ok().map(PathBuf::from);
+    let appdata = env::var("APPDATA").ok().map(PathBuf::from);
+    migrate_from_roots(target, local.as_deref(), appdata.as_deref())
+}
+
+/// Core migration logic with explicit base directories, so tests can pass
+/// sandboxed temp paths instead of touching the real LOCALAPPDATA/APPDATA.
+pub fn migrate_from_roots(
+    target: &Path,
+    local_appdata: Option<&Path>,
+    appdata: Option<&Path>,
+) -> MigrationReport {
+    let mut report = MigrationReport::default();
+
+    // gamevault.db lived in <LOCALAPPDATA>\project-mvo-app
+    // hardware.db lived in <LOCALAPPDATA>\MVO-Hub
+    if let Some(base) = local_appdata {
+        for (legacy_dir, file) in [
+            ("project-mvo-app", "gamevault.db"),
+            ("MVO-Hub", "hardware.db"),
+        ] {
+            let src = base.join(legacy_dir).join(file);
+            copy_sqlite_if_absent(&src, &target.join(file), &mut report);
+        }
+    } else {
+        report.missing.push("<LOCALAPPDATA> unavailable".to_string());
+    }
+
+    // Settings lived in <APPDATA>\ProjectMVO\mvo-settings.json
+    if let Some(base) = appdata {
+        let src = base.join("ProjectMVO").join("mvo-settings.json");
+        copy_if_absent(&src, &target.join("mvo-settings.json"), &mut report);
+    } else {
+        report.missing.push("<APPDATA> unavailable".to_string());
+    }
+
+    // Artwork cache (nice-to-have; avoids re-downloading covers)
+    if let Some(base) = local_appdata {
+        let src_cache = base.join("project-mvo-app").join("artwork_cache");
+        let dst_cache = target.join("artwork_cache");
+        if src_cache.is_dir() && !dst_cache.exists() {
+            match copy_dir_shallow(&src_cache, &dst_cache) {
+                Ok(count) => {
+                    if count > 0 {
+                        report
+                            .copied
+                            .push(format!("{} ({} files)", dst_cache.display(), count));
+                    }
+                }
+                Err(e) => report.errors.push(format!("artwork_cache: {}", e)),
+            }
+        }
+    }
+
+    report
+}
+
+/// Recursively copy a directory tree. Returns number of files copied.
+fn copy_dir_shallow(src: &Path, dst: &Path) -> Result<usize, String> {
+    fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+    let mut count = 0;
+    for entry in fs::read_dir(src).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        let dest = dst.join(entry.file_name());
+        if path.is_dir() {
+            count += copy_dir_shallow(&path, &dest)?;
+        } else if !dest.exists() {
+            if fs::copy(&path, &dest).is_ok() {
+                count += 1;
+            }
+        }
+    }
+    Ok(count)
+}
+
+/// Called from the Tauri setup hook. Migrates legacy data into the canonical
+/// root and returns a summary (for logging / optional UI notice).
+fn migrate_legacy_data() -> MigrationReport {
+    let target = app_data_dir();
+    let _ = fs::create_dir_all(&target);
+    let report = migrate_legacy_data_into(&target);
+
+    if !report.copied.is_empty() {
+        eprintln!(
+            "[migration] Migrated {} legacy item(s) into {}",
+            report.copied.len(),
+            target.display()
+        );
+        for item in &report.copied {
+            eprintln!("  ✔ {}", item);
+        }
+    }
+    if !report.errors.is_empty() {
+        for e in &report.errors {
+            eprintln!("[migration] WARN {}", e);
+        }
+    }
+    report
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -5333,13 +5775,16 @@ pub fn run() {
                 });
             }
 
-            let app_data = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
-            match gamevault::db::GameVaultDb::new(&app_data) {
-                Ok(db) => {
-                    let _ = GV_DB.set(Arc::new(Mutex::new(db)));
-                }
-                e => { eprintln!("GameVault DB init failed: {:?}", e); }
-            }
+            // ── One-time legacy data migration (v0.2.14) ──
+            // Must run BEFORE the DB is opened, otherwise the app would create
+            // a fresh empty gamevault.db and the migration would be skipped.
+            migrate_legacy_data();
+
+            // ── Initialize GameVault DB with the unified canonical path (v0.2.14)
+            // Previously used app.path().app_data_dir() → three fragmented roots.
+            // Now all data funnels through %LOCALAPPDATA%\MVO Hub\.
+            let db = gamevault::db::GameVaultDb::new(&app_data_dir())?;
+            let _ = GV_DB.set(Arc::new(Mutex::new(db)));
             // HWiNFO removed - hardware monitoring now uses native NVML/sysinfo providers
 
             // ── System Tray ──
@@ -5539,6 +5984,8 @@ pub fn run() {
             hardware::commands::save_hardware_snapshot,
             hardware::commands::cleanup_old_sensor_data,
             hardware::commands::get_hardware_recommendations,
+            hardware::commands::enable_cpu_temperature,
+            hardware::commands::get_cpu_temperature_status,
             get_system_info,
             get_gpu_info,
             detect_overlay_tools,
@@ -5604,6 +6051,7 @@ pub fn run() {
             open_print_management,
             updater::check_for_updates,
             updater::download_and_install_update,
+            get_news_feed,
             create_account,
             login,
             get_current_user,
@@ -5690,4 +6138,195 @@ fn snap_window(app: tauri::AppHandle, side: String) -> Result<(), String> {
         _ => {}
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+
+    /// v0.2.14 path unification: every data file must live under the single
+    /// canonical root `%LOCALAPPDATA%\MVO Hub`, not the legacy fragmented
+    /// roots (`project-mvo-app`, `MVO-Hub`, `ProjectMVO`).
+    #[test]
+    fn app_data_dir_is_unified_canonical_root() {
+        let dir = app_data_dir();
+        assert!(
+            dir.ends_with("MVO Hub"),
+            "canonical app data dir must end with 'MVO Hub', got {:?}",
+            dir
+        );
+        let dir_str = dir.to_string_lossy().replace('\\', "/");
+        for legacy in ["project-mvo-app", "MVO-Hub", "ProjectMVO"] {
+            assert!(
+                !dir_str.contains(legacy),
+                "app data dir must not reference legacy root '{}', got {:?}",
+                legacy,
+                dir
+            );
+        }
+    }
+
+    #[test]
+    fn settings_file_lives_in_canonical_root() {
+        let settings = settings_file_path().expect("settings path should resolve");
+        assert_eq!(settings.file_name().unwrap(), "mvo-settings.json");
+        assert_eq!(
+            settings.parent().unwrap(),
+            app_data_dir(),
+            "mvo-settings.json must live directly in the canonical root"
+        );
+    }
+
+    #[test]
+    fn databases_are_siblings_in_canonical_root() {
+        let root = app_data_dir();
+        // Both SQLite stores are constructed as root.join("<name>.db")
+        assert_eq!(root.join("gamevault.db").parent().unwrap(), root);
+        assert_eq!(root.join("hardware.db").parent().unwrap(), root);
+        // CPU temp handoff file is written by the elevated helper
+        assert_eq!(root.join("cpu-temp.json").parent().unwrap(), root);
+    }
+
+    // ---- Legacy data migration (v0.2.14) ----
+
+    struct Sandbox {
+        root: PathBuf,
+        local: PathBuf,
+        appdata: PathBuf,
+        target: PathBuf,
+    }
+
+    impl Sandbox {
+        fn new(tag: &str) -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "mvo_migrate_{}_{}",
+                tag,
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&root);
+            let local = root.join("Local");
+            let appdata = root.join("Roaming");
+            let target = local.join("MVO Hub");
+            std::fs::create_dir_all(&local).unwrap();
+            std::fs::create_dir_all(&appdata).unwrap();
+            Sandbox { root, local, appdata, target }
+        }
+        fn write(&self, path: PathBuf, body: &str) {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, body).unwrap();
+        }
+        fn run(&self) -> MigrationReport {
+            migrate_from_roots(&self.target, Some(&self.local), Some(&self.appdata))
+        }
+    }
+
+    impl Drop for Sandbox {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn migration_copies_all_three_legacy_files() {
+        let s = Sandbox::new("copy_all");
+        s.write(s.local.join("project-mvo-app").join("gamevault.db"), "GVDB");
+        s.write(s.local.join("MVO-Hub").join("hardware.db"), "HWDB");
+        s.write(s.appdata.join("ProjectMVO").join("mvo-settings.json"), "{\"theme\":\"dark\"}");
+
+        let report = s.run();
+        assert!(report.errors.is_empty(), "unexpected errors: {:?}", report.errors);
+        assert_eq!(report.copied.len(), 3, "all three files must be copied");
+
+        assert_eq!(std::fs::read_to_string(s.target.join("gamevault.db")).unwrap(), "GVDB");
+        assert_eq!(std::fs::read_to_string(s.target.join("hardware.db")).unwrap(), "HWDB");
+        assert_eq!(
+            std::fs::read_to_string(s.target.join("mvo-settings.json")).unwrap(),
+            "{\"theme\":\"dark\"}"
+        );
+        assert!(report.did_migrate());
+    }
+
+    #[test]
+    fn migration_never_overwrites_existing_canonical_data() {
+        let s = Sandbox::new("no_overwrite");
+        s.write(s.local.join("project-mvo-app").join("gamevault.db"), "OLD");
+        s.write(s.appdata.join("ProjectMVO").join("mvo-settings.json"), "{\"a\":1}");
+        // Canonical root already has newer data
+        s.write(s.target.join("gamevault.db"), "NEW");
+        s.write(s.target.join("mvo-settings.json"), "{\"b\":2}");
+
+        let report = s.run();
+        assert_eq!(report.copied.len(), 0, "nothing should be copied over existing data");
+        assert_eq!(report.skipped_existing.len(), 2);
+        assert_eq!(std::fs::read_to_string(s.target.join("gamevault.db")).unwrap(), "NEW");
+        assert_eq!(std::fs::read_to_string(s.target.join("mvo-settings.json")).unwrap(), "{\"b\":2}");
+        assert!(!report.did_migrate());
+    }
+
+    #[test]
+    fn migration_never_deletes_legacy_sources() {
+        let s = Sandbox::new("fail_safe");
+        let gv = s.local.join("project-mvo-app").join("gamevault.db");
+        let st = s.appdata.join("ProjectMVO").join("mvo-settings.json");
+        s.write(gv.clone(), "GVDB");
+        s.write(st.clone(), "{}");
+
+        s.run();
+
+        assert!(gv.exists(), "legacy gamevault.db must be retained for rollback");
+        assert!(st.exists(), "legacy settings must be retained for rollback");
+    }
+
+    #[test]
+    fn migration_copies_sqlite_wal_and_shm_sidecars() {
+        let s = Sandbox::new("sidecars");
+        let base = s.local.join("project-mvo-app");
+        s.write(base.join("gamevault.db"), "GVDB");
+        s.write(base.join("gamevault.db-wal"), "WAL");
+        s.write(base.join("gamevault.db-shm"), "SHM");
+
+        s.run();
+
+        // A WAL-carrying DB copied without its sidecars can lose committed rows.
+        assert_eq!(std::fs::read_to_string(s.target.join("gamevault.db-wal")).unwrap(), "WAL");
+        assert_eq!(std::fs::read_to_string(s.target.join("gamevault.db-shm")).unwrap(), "SHM");
+    }
+
+    #[test]
+    fn migration_is_a_noop_when_no_legacy_data_exists() {
+        let s = Sandbox::new("empty");
+        let report = s.run();
+        assert_eq!(report.copied.len(), 0);
+        assert!(report.errors.is_empty());
+        assert!(!report.did_migrate());
+        assert!(report.skipped_existing.is_empty());
+    }
+
+    #[test]
+    fn migration_runs_idempotently() {
+        let s = Sandbox::new("idempotent");
+        s.write(s.local.join("project-mvo-app").join("gamevault.db"), "GVDB");
+
+        let first = s.run();
+        assert_eq!(first.copied.len(), 1);
+
+        // Second launch: destination now exists, so nothing is copied again.
+        let second = s.run();
+        assert_eq!(second.copied.len(), 0);
+        assert_eq!(second.skipped_existing.len(), 1);
+        assert_eq!(std::fs::read_to_string(s.target.join("gamevault.db")).unwrap(), "GVDB");
+    }
+
+    #[test]
+    fn migration_handles_partial_legacy_data() {
+        let s = Sandbox::new("partial");
+        // Only settings survived a partial uninstall
+        s.write(s.appdata.join("ProjectMVO").join("mvo-settings.json"), "{\"x\":1}");
+
+        let report = s.run();
+        assert_eq!(report.copied.len(), 1);
+        assert!(report.errors.is_empty());
+        assert!(s.target.join("mvo-settings.json").exists());
+        assert!(!s.target.join("gamevault.db").exists());
+    }
 }

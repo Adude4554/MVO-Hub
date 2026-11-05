@@ -26,6 +26,11 @@
     --mvo-text-muted: #5a6d8f;
     --mvo-accent: #00d4ff;
     --mvo-accent-red: #ff3366;
+    /* Phase 4 premium crimson accent (sidebar, active nav, primary actions) */
+    --mvo-crimson: #e11d48;
+    --mvo-crimson-bright: #ff2d55;
+    --mvo-crimson-dim: rgba(225, 29, 72, 0.14);
+    --mvo-crimson-glow: rgba(225, 29, 72, 0.45);
     --mvo-glass-bg: linear-gradient(145deg, rgba(17, 24, 39, 0.7), rgba(10, 15, 26, 0.85));
     --mvo-glass-border: rgba(30, 42, 74, 0.4);
     --mvo-card-bg: linear-gradient(145deg, rgba(17, 24, 39, 0.8), rgba(10, 15, 26, 0.95));
@@ -33,6 +38,15 @@
     --mvo-input-bg: rgba(255, 255, 255, 0.03);
     --mvo-input-border: rgba(30, 42, 74, 0.5);
     --mvo-scrollbar: linear-gradient(180deg, #00d4ff, #8b7cff);
+
+    /* ── Layout metrics ────────────────────────────────────────────
+       Single source of truth for shell measurements. Referenced by
+       App (content padding), Sidebar (height) and the global footer.
+       Keep in sync with `spacing` in tailwind.config.js. */
+    --mvo-footer-height: 44px;
+    --mvo-sidebar-width: 276px;
+    --mvo-sidebar-width-collapsed: 76px;
+    --mvo-hud-height: 76px;
   }
 
   html.light {
@@ -47,6 +61,11 @@
     --mvo-text-muted: #718096;
     --mvo-accent: #0088aa;
     --mvo-accent-red: #e53e3e;
+    /* Crimson stays saturated in light mode so the shell keeps its identity */
+    --mvo-crimson: #c81e45;
+    --mvo-crimson-bright: #e11d48;
+    --mvo-crimson-dim: rgba(200, 30, 69, 0.10);
+    --mvo-crimson-glow: rgba(200, 30, 69, 0.30);
     --mvo-glass-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(240, 242, 245, 0.95));
     --mvo-glass-border: rgba(200, 210, 230, 0.5);
     --mvo-card-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(240, 242, 245, 0.95));

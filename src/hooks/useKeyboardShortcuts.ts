@@ -5,7 +5,6 @@ interface KeyboardShortcutsProps {
   onToggleSearch: () => void;
   onNewChat: () => void;
   onToggleSidebar: () => void;
-  onToggleRightPanel: () => void;
   onNavigate: (page: string) => void;
 }
 
@@ -13,7 +12,6 @@ export function useKeyboardShortcuts({
   onToggleSearch,
   onNewChat,
   onToggleSidebar,
-  onToggleRightPanel,
   onNavigate,
 }: KeyboardShortcutsProps) {
   const handler = useCallback((e: KeyboardEvent) => {
@@ -42,14 +40,6 @@ export function useKeyboardShortcuts({
       e.preventDefault();
       sounds.toggle();
       onToggleSidebar();
-      return;
-    }
-
-    // Ctrl+Shift+P — Toggle right panel
-    if (ctrl && shift && key === 'p') {
-      e.preventDefault();
-      sounds.toggle();
-      onToggleRightPanel();
       return;
     }
 
@@ -85,7 +75,7 @@ export function useKeyboardShortcuts({
     if (key === 'escape') {
       onNavigate('dashboard');
     }
-  }, [onToggleSearch, onNewChat, onToggleSidebar, onToggleRightPanel, onNavigate]);
+  }, [onToggleSearch, onNewChat, onToggleSidebar, onNavigate]);
 
   useEffect(() => {
     window.addEventListener('keydown', handler);

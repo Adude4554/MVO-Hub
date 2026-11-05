@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { DownloadIcon, Loader2, CheckCircleIcon, AlertTriangle, X } from 'lucide-react';
+import { listen } from '@tauri-apps/api/event';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { DownloadIcon, Loader2, CheckCircleIcon, AlertTriangle, X, RotateCw } from 'lucide-react';
 
 interface UpdateLockScreenProps {
   version: string;
@@ -9,7 +10,7 @@ interface UpdateLockScreenProps {
 }
 
 export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
-  const [status, setStatus] = useState<'downloading' | 'installing' | 'done' | 'error'>('downloading');
+  const [status, setStatus] = useState<'downloading' | 'installing' | 'done' | 'error' | 'no_update'>('downloading');
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState('Preparing download...');
   const [error, setError] = useState('');
@@ -18,7 +19,9 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
   const started = useRef(false);
 
   useEffect(() => {
-    const unlisten = listen<any>('update-progress', (event) => {
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+    listen<any>('update-progress', (event) => {
       const p = event.payload;
       if (p.state === 'verifying') {
         setStatus('downloading');
@@ -35,47 +38,53 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
         setProgress(100);
         setProgressText('Installing update...');
       }
-    });
-    return () => { unlisten.then((fn: UnlistenFn) => fn()); };
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    }).catch(() => { /* not running under Tauri */ });
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
   }, []);
+
+  const runUpdate = async () => {
+    try {
+      setProgressText('Downloading update...');
+      setStatus('downloading');
+      const result = await invoke<string>('download_and_install_update');
+      // Backend short-circuits with {"status":"no_update"} when the manifest
+      // no longer reports a newer version — do not pretend the app will restart.
+      if (typeof result === 'string' && result.includes('"no_update"')) {
+        setStatus('no_update');
+        setProgressText('No update was available.');
+        return;
+      }
+      setStatus('done');
+      setProgressText('Update installed.');
+    } catch (e) {
+      setError(String(e));
+      setStatus('error');
+    }
+  };
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-
-    const run = async () => {
-      try {
-        setProgressText('Downloading update...');
-        setStatus('downloading');
-        await invoke('download_and_install_update');
-        setStatus('done');
-        setProgressText('Update installed. Restarting...');
-      } catch (e) {
-        setError(String(e));
-        setStatus('error');
-      }
-    };
-    run();
+    runUpdate();
   }, []);
 
   const retry = () => {
     setError('');
-    setStatus('downloading');
-    setProgress(0);
-    setProgressText('Retrying download...');
-    started.current = false;
-    started.current = true;
-    const run = async () => {
-      try {
-        await invoke('download_and_install_update');
-        setStatus('done');
-        setProgressText('Update installed. Restarting...');
-      } catch (e) {
-        setError(String(e));
-        setStatus('error');
-      }
-    };
-    run();
+    runUpdate();
+  };
+
+  const restartApp = async () => {
+    try {
+      await relaunch();
+    } catch {
+      window.location.reload();
+    }
   };
 
   const exitApp = async () => {
@@ -88,7 +97,7 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
         <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center mb-6">
           {status === 'done' ? (
             <CheckCircleIcon className="w-10 h-10 text-white" />
-          ) : status === 'error' ? (
+          ) : status === 'error' || status === 'no_update' ? (
             <AlertTriangle className="w-10 h-10 text-white" />
           ) : (
             <DownloadIcon className="w-10 h-10 text-white" />
@@ -96,12 +105,20 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
         </div>
 
         <h1 className="font-display text-2xl font-bold text-mvo-text mb-2">
-          {status === 'error' ? 'Update Failed' : 'Update Required'}
+          {status === 'error'
+            ? 'Update Failed'
+            : status === 'no_update'
+              ? 'No Update Needed'
+              : status === 'done'
+                ? 'Update Installed'
+                : 'Update Required'}
         </h1>
         <p className="text-mvo-textDim mb-1">
           {status === 'error'
             ? 'Something went wrong during the update'
-            : 'A new version of MVO Hub is available'}
+            : status === 'no_update'
+              ? 'The update is no longer available'
+              : 'A new version of MVO Hub is available'}
         </p>
         <p className="text-cyan-400 font-semibold text-lg mb-4">v{version}</p>
 
@@ -146,9 +163,21 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
               <span className="text-sm font-medium">{progressText}</span>
             </div>
           ) : status === 'done' ? (
-            <div className="flex items-center gap-2 text-green-400">
-              <CheckCircleIcon className="w-5 h-5" />
-              <span className="text-sm font-medium">{progressText}</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={restartApp}
+                className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all flex items-center gap-2"
+              >
+                <RotateCw className="w-4 h-4" />
+                Restart Now
+              </button>
+              <button
+                onClick={exitApp}
+                className="px-4 py-2 border border-mvo-border/50 text-mvo-textDim hover:text-white rounded-xl transition-colors flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Exit
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
@@ -170,7 +199,11 @@ export function UpdateLockScreen({ version, notes }: UpdateLockScreenProps) {
           )}
         </div>
 
-        <p className="text-xs text-mvo-textMuted mt-6">The app will restart automatically after installation</p>
+        <p className="text-xs text-mvo-textMuted mt-6">
+          {status === 'done'
+            ? 'Restart MVO Hub to finish applying the update'
+            : 'The app will restart automatically after installation'}
+        </p>
       </div>
     </div>
   );

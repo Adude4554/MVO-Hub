@@ -21,6 +21,12 @@ impl HardwareDb {
         let db_path = app_data_dir.join("hardware.db");
         let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
 
+        // WAL + busy_timeout so parallel sensor writes don't hit SQLITE_BUSY;
+        // foreign_keys enables the declared sensor FK constraints.
+        conn.pragma_update(None, "journal_mode", "WAL").map_err(|e| e.to_string())?;
+        conn.busy_timeout(std::time::Duration::from_millis(5000)).map_err(|e| e.to_string())?;
+        conn.pragma_update(None, "foreign_keys", "ON").map_err(|e| e.to_string())?;
+
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS hw_sensors (
                 id TEXT PRIMARY KEY,

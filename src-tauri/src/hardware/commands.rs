@@ -1,6 +1,8 @@
 use super::manager::HardwareManager;
 use super::db::HardwareDb;
 use super::health::HealthEngine;
+use super::cpu::temp;
+use crate::app_data_dir;
 use std::sync::{Arc, Mutex};
 use std::sync::OnceLock;
 
@@ -11,13 +13,17 @@ pub fn hw_manager() -> &'static Arc<Mutex<HardwareManager>> {
     HW_MANAGER.get_or_init(|| Arc::new(Mutex::new(HardwareManager::new())))
 }
 
-pub fn hw_db() -> &'static Arc<Mutex<HardwareDb>> {
-    HW_DB.get_or_init(|| {
-        let data_dir = dirs::data_local_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("MVO-Hub");
-        Arc::new(Mutex::new(HardwareDb::new(&data_dir).expect("Failed to init hardware DB")))
-    })
+pub fn hw_db() -> Result<&'static Arc<Mutex<HardwareDb>>, String> {
+    if let Some(db) = HW_DB.get() {
+        return Ok(db);
+    }
+    let data_dir = app_data_dir();  // %LOCALAPPDATA%\MVO Hub\
+    // Never panic on DB open failure (locked/corrupt/permission-denied file):
+    // surface a normal command error instead of crashing the whole app.
+    match HardwareDb::new(&data_dir) {
+        Ok(db) => Ok(HW_DB.get_or_init(|| Arc::new(Mutex::new(db)))),
+        Err(e) => Err(format!("Failed to init hardware DB: {}", e)),
+    }
 }
 
 #[tauri::command]
@@ -105,7 +111,7 @@ pub fn get_hardware_health() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 pub fn get_hardware_sensor_history(sensor_id: String, count: Option<usize>) -> Result<Vec<serde_json::Value>, String> {
-    let db = hw_db();
+    let db = hw_db()?;
     let conn = db.lock().map_err(|e| e.to_string())?;
     let readings = conn.get_recent_readings(&sensor_id, count.unwrap_or(100)).map_err(|e| e.to_string())?;
     Ok(readings.iter().map(|(ts, val)| serde_json::json!({"timestamp": ts, "value": val})).collect())
@@ -116,7 +122,7 @@ pub fn save_hardware_snapshot() -> Result<String, String> {
     let mgr = hw_manager();
     let manager = mgr.lock().map_err(|e| e.to_string())?;
     let snap = manager.get_snapshot();
-    let db = hw_db();
+    let db = hw_db()?;
     let conn = db.lock().map_err(|e| e.to_string())?;
     for reading in &snap.sensors {
         conn.upsert_sensor(reading).map_err(|e| e.to_string())?;
@@ -127,7 +133,7 @@ pub fn save_hardware_snapshot() -> Result<String, String> {
 
 #[tauri::command]
 pub fn cleanup_old_sensor_data(days: Option<i64>) -> Result<usize, String> {
-    let db = hw_db();
+    let db = hw_db()?;
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.cleanup_old_readings(days.unwrap_or(30)).map_err(|e| e.to_string())
 }
@@ -171,6 +177,30 @@ pub fn get_hardware_recommendations() -> Result<serde_json::Value, String> {
                     "component": "GPU",
                     "message": format!("GPU temperature is warm ({:.0}°C). Ensure adequate cooling.", sensor.value),
                     "severity": "medium",
+                }));
+            }
+            id if id == "cpu.temperature" && sensor.value > 95.0 => {
+                recommendations.push(serde_json::json!({
+                    "type": "warning",
+                    "component": "CPU",
+                    "message": format!("CPU temperature is critical ({:.0}°C). Improve case airflow, reapply thermal paste, or reduce CPU load.", sensor.value),
+                    "severity": "high",
+                }));
+            }
+            id if id == "cpu.temperature" && sensor.value > 85.0 => {
+                recommendations.push(serde_json::json!({
+                    "type": "warning",
+                    "component": "CPU",
+                    "message": format!("CPU temperature is high ({:.0}°C). Check CPU cooler and case airflow.", sensor.value),
+                    "severity": "medium",
+                }));
+            }
+            id if id == "cpu.temperature" && sensor.value > 75.0 => {
+                recommendations.push(serde_json::json!({
+                    "type": "info",
+                    "component": "CPU",
+                    "message": format!("CPU temperature is elevated ({:.0}°C). Monitor for sustained loads.", sensor.value),
+                    "severity": "low",
                 }));
             }
             id if id.starts_with("gpu.gpu_nvidia_0.power") && sensor.value > 300.0 => {
@@ -222,5 +252,19 @@ pub fn get_hardware_recommendations() -> Result<serde_json::Value, String> {
         "recommendations": recommendations,
         "count": recommendations.len(),
         "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
+    }))
+}
+
+#[tauri::command]
+pub fn enable_cpu_temperature() -> Result<String, String> {
+    temp::launch_helper_elevated().map_err(|e| format!("Failed to launch CPU temperature helper: {}", e))?;
+    Ok("CPU temperature helper elevation requested. Approve the UAC prompt to begin monitoring.".to_string())
+}
+
+#[tauri::command]
+pub fn get_cpu_temperature_status() -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({
+        "helperInstalled": temp::helper_installed(),
+        "helperRunning": temp::helper_running(),
     }))
 }
