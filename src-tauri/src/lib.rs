@@ -12,6 +12,10 @@ use futures_util::StreamExt;
 mod gamevault;
 mod scanner;
 mod hardware;
+mod plugins;
+pub mod cloud;
+pub mod enterprise;
+pub mod games;
 pub mod updater;
 
 #[cfg(target_os = "windows")]
@@ -4795,7 +4799,7 @@ fn decrypt_secret(enc: &str) -> Result<String, String> {
     if key.is_empty() {
         return Err("session key empty".to_string());
     }
-    let bytes = base64::decode(enc).map_err(|e| format!("base64 decode failed: {}", e))?;
+    let bytes: Vec<u8> = base64::decode(enc).map_err(|e| format!("base64 decode failed: {}", e))?;
     let xored: Vec<u8> = bytes.iter().enumerate().map(|(i, b)| b ^ key[i % key.len()]).collect();
     String::from_utf8(xored).map_err(|e| format!("utf8 decode failed: {}", e))
 }
@@ -5863,6 +5867,17 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            plugins::register_plugin,
+            plugins::list_plugins,
+            plugins::invoke_plugin_action,
+            plugins::toggle_plugin,
+            plugins::get_plugin_hooks,
+            plugins::plugin_read_file,
+            plugins::plugin_write_file,
+            plugins::plugin_list_files,
+            plugins::plugin_delete_file,
+            plugins::plugin_launch_process,
+            plugins::plugin_http_request,
             window_minimize,
             window_maximize,
             window_toggle_maximize,
@@ -6080,8 +6095,78 @@ pub fn run() {
             hardware::commands::get_hardware_sensors,
             hardware::commands::get_hardware_devices,
             hardware::commands::get_hardware_status,
-            hardware::commands::get_hardware_snapshot
+            hardware::commands::get_hardware_snapshot,
+            // Cloud saves & achievements (v0.3.0)
+            cloud::commands::cloud_scan_saves,
+            cloud::commands::cloud_list_saves,
+            cloud::commands::cloud_list_game_saves,
+            cloud::commands::cloud_detect_conflicts,
+            cloud::commands::cloud_resolve_conflict,
+            cloud::commands::cloud_sync_now,
+            cloud::commands::cloud_get_status,
+            cloud::commands::achievements_register,
+            cloud::commands::achievements_unlock,
+            cloud::commands::achievements_list,
+            cloud::commands::achievements_state,
+            // Advanced game management (v0.3.0)
+            games::commands::get_game_config,
+            games::commands::update_game_config,
+            games::commands::get_launch_spec,
+            games::commands::launch_game_with_args,
+            games::commands::poll_game_processes,
+            games::commands::get_active_games,
+            games::commands::stop_game_session,
+            games::commands::get_game_playtime,
+            games::commands::get_game_sessions,
+            games::commands::get_game_process_state,
+            games::commands::upload_game_image,
+            // Enterprise B2B / SDK foundation (v0.3.0)
+            enterprise::commands::enterprise_get_license,
+            enterprise::commands::enterprise_install_license,
+            enterprise::commands::enterprise_get_profile,
+            enterprise::commands::enterprise_set_profile,
+            enterprise::commands::enterprise_get_branding,
+            enterprise::commands::enterprise_telemetry_snapshot,
+            enterprise::commands::enterprise_drain_telemetry,
+            enterprise::commands::enterprise_record_event,
+            enterprise::commands::enterprise_diagnostics
         ])
+        // Initialize plugin manager before app launch
+        .setup(|app| {
+            match plugins::init_plugin_manager(app.handle()) {
+                Ok(loaded) => {
+                    app.emit("plugin:loaded", serde_json::json!({ "count": loaded.len() })).ok();
+                }
+                Err(e) => {
+                    eprintln!("Plugin initialization error: {}", e);
+                }
+            }
+
+            // Activate live playtime tracking: poll the process list while a
+            // game is being tracked so sessions accrue in real time. Idle ticks
+            // are skipped before the (comparatively costly) process snapshot.
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(games::sessions::POLL_INTERVAL);
+                    if !games::sessions::has_tracked_games() {
+                        continue;
+                    }
+                    // A panicking tick must not end playtime tracking for the
+                    // rest of the session, so each poll is isolated.
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        games::commands::run_process_poll(&handle)
+                    }));
+                    match result {
+                        Ok(Ok(_)) => {}
+                        Ok(Err(e)) => eprintln!("Playtime poll failed: {}", e),
+                        Err(_) => eprintln!("Playtime poll panicked; continuing"),
+                    }
+                });
+            }
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

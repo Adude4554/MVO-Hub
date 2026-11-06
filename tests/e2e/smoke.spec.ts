@@ -566,6 +566,8 @@ const PAGES: Array<{ id: string; name: string; expectText?: RegExp }> = [
   { id: 'functiontest', name: 'Function Test' },
   { id: 'updates', name: 'Updates' },
   { id: 'streaming', name: 'Streaming' },
+  { id: 'cloud', name: 'Cloud & Achievements', expectText: /Cloud\s*&\s*Achievements/ },
+  { id: 'gamedetail', name: 'Game Detail' },
 ];
 
 for (const { id, name } of PAGES) {

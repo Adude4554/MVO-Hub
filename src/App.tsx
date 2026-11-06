@@ -25,6 +25,8 @@ import { Tools } from './pages/Tools';
 import { Settings } from './pages/Settings';
 import { FunctionTest } from './pages/FunctionTest';
 import { Updates } from './pages/Updates';
+import { CloudAchievements } from './pages/CloudAchievements';
+import { GameDetail } from './pages/GameDetail';
 import { GlobalChat } from './pages/GlobalChat';
 import { MoviesTV } from './pages/MoviesTV';
 import { WindowResizeHandles } from './components/WindowResizeHandles';
@@ -192,6 +194,8 @@ const pageMap: Record<string, React.FC<any>> = {
   settings: Settings,
   functiontest: FunctionTest,
   updates: Updates,
+  cloud: CloudAchievements,
+  gamedetail: GameDetail,
   globalchat: GlobalChat,
   moviestv: MoviesTV,
   movies: MoviesTV,

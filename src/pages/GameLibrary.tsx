@@ -1,5 +1,6 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { GlassCard } from '../components/ui';
+import { GameArtwork } from '../components/GameArtwork';
 import { Search, Star, Play, FolderOpen, Loader2, AlertTriangle } from 'lucide-react';
 import { useGames } from '../hooks/useGames';
 import { invoke } from '@tauri-apps/api/core';
@@ -37,6 +38,14 @@ export function GameLibrary() {
       setToast({ msg: String(e), ok: false });
     }
     setActionLoading(null);
+  };
+
+  /** Open the Game Detail view; the id travels in the URL so it deep-links. */
+  const openGameDetail = (id: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', 'gamedetail');
+    url.searchParams.set('game', id);
+    window.location.href = url.toString();
   };
 
   const openFolder = async (path: string) => {
@@ -97,25 +106,26 @@ export function GameLibrary() {
           sortedGames.map(game => (
             <GlassCard key={game.id} className="group p-0 overflow-hidden flex flex-col h-full stat-card">
               <div className="aspect-video bg-gradient-to-br from-mvo-panelHover to-mvo-panel relative overflow-hidden">
-                {game.app_id ? (
-                  <img
-                    src={`https://cdn.akamai.steamstatic.com/steam/apps/${game.app_id}/header.jpg`}
-                    alt={game.name}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    loading="lazy"
-                    onError={e => {
-                      const img = e.target as HTMLImageElement;
-                      img.style.display = 'none';
-                    }}
-                  />
-                ) : null}
+                <GameArtwork
+                  game={game}
+                  kind="header"
+                  alt={game.name}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  initialsClassName="font-display text-2xl font-bold text-white/70"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-4 flex items-end justify-between">
                   <span className="text-xs px-2 py-1 rounded bg-mvo-bg/80 backdrop-blur text-mvo-textDim">{game.source}</span>
                 </div>
               </div>
               <div className="p-4 flex-1 flex flex-col">
-                <h3 className="font-semibold text-mvo-text truncate group-hover:text-cyan-400 transition-colors">{game.name}</h3>
+                <button
+                  onClick={() => openGameDetail(game.id)}
+                  className="truncate text-left font-semibold text-mvo-text transition-colors group-hover:text-mvo-crimsonBright hover:text-mvo-crimsonBright"
+                  title={t('library.details')}
+                >
+                  {game.name}
+                </button>
                 <p className="text-xs text-mvo-textDim mt-1 truncate">{game.executable_hint || game.install_dir}</p>
                 <div className="mt-auto pt-3 flex items-center gap-2">
                   <button onClick={() => launchGame(game)} disabled={actionLoading === game.id} className="flex-1 btn-primary py-2 text-sm flex items-center justify-center gap-2">

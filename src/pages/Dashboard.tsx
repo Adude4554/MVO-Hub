@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   Cpu,
   Gamepad2,
@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { PageId } from '../config/pages';
-import { getSteamPosterUrl, getLauncherGradient, getGameInitials } from '../lib/gameArtwork';
+import { getLauncherGradient, getGameInitials } from '../lib/gameArtwork';
+import { GameArtwork } from '../components/GameArtwork';
 import { VideoBackground } from '../components/VideoBackground';
 
 /* ────────────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ interface HomeProps {
   games?: any;
   onNavigate?: (page: PageId, tab?: string) => void;
   user?: { id: number; username: string; email: string } | null;
+  // App renders every page through a single `React.FC<any>` host component, so
+  // the dashboard receives the full shared prop bag. Extra props are ignored.
+  [key: string]: any;
 }
 
 interface NewsItem {
@@ -364,11 +368,6 @@ export function Dashboard({ hardwareSensors, ai, games, onNavigate }: HomeProps)
             )}
 
             {scannedGames.slice(0, 5).map((game: any) => {
-              const poster = game.platform === 'Steam' && game.app_id
-                ? getSteamPosterUrl({ launcher: 'steam', app_id: String(game.app_id) } as any)
-                : game.cover_local
-                  ? `file://${game.cover_local}`
-                  : '';
               return (
                 <button
                   key={game.id || game.name}
@@ -378,27 +377,15 @@ export function Dashboard({ hardwareSensors, ai, games, onNavigate }: HomeProps)
                   data-testid="library-cover"
                   className="group relative flex w-[104px] shrink-0 flex-col gap-1.5 text-left"
                 >
-                  <div
-                    className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-white/[0.07] transition-colors group-hover:border-mvo-crimson/45"
-                    style={poster ? undefined : { background: getLauncherGradient(game.launcher || 'unknown') }}
-                  >
-                    {poster ? (
-                      <img
-                        src={poster}
-                        alt={game.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <span className="font-display text-lg font-bold text-white/70">
-                          {getGameInitials(game.name || '?')}
-                        </span>
-                      </div>
-                    )}
+                  <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-white/[0.07] transition-colors group-hover:border-mvo-crimson/45">
+                    {/* The component owns both the image and the gradient
+                        fallback, so every surface resolves art identically. */}
+                    <GameArtwork
+                      game={game}
+                      kind="poster"
+                      alt={game.name}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
                   </div>
                   <span className="truncate text-[10px] text-white/50 group-hover:text-white/80">
                     {game.name}

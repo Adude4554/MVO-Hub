@@ -1,4 +1,4 @@
-export interface PageConfig {
+﻿export interface PageConfig {
   id: string
   label: string
   icon: string
@@ -34,6 +34,8 @@ export const availablePages: PageConfig[] = [
    { id: 'streaming', label: 'Streaming', icon: '📡', group: 'tools', description: 'OBS, capture and audio setup' },
    { id: 'functiontest', label: 'Function Test', icon: '🧪', group: 'tools', description: 'Backend command testing' },
    { id: 'updates', label: 'Updates', icon: '🔄', group: 'system', description: 'App updates & version info' },
+   { id: 'cloud', label: 'Cloud & Achievements', icon: '\u2601', group: 'gaming', description: 'Save sync status, conflicts & achievements' },
+   { id: 'gamedetail', label: 'Game Detail', icon: '\u2b50', group: 'gaming', description: 'Playtime, launch options & achievements' },
  ] as const
 
 export type PageId = typeof availablePages[number]['id']

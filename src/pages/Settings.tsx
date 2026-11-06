@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { GlassCard } from '../components/ui';
 import { RotateCcwIcon, DownloadIcon, UploadIcon, FolderOpenIcon, ShieldIcon, BrainIcon, LayoutDashboardIcon, Loader2, Trash2Icon, SettingsIcon, WrenchIcon, GaugeIcon, PowerIcon, MonitorIcon, HardDriveIcon, NetworkIcon, PuzzleIcon, ChevronDownIcon, ChevronRightIcon, RefreshCwIcon, UserIcon, LogOutIcon, CheckCircleIcon, AlertTriangle, CloudIcon, DatabaseIcon } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
@@ -7,6 +7,8 @@ import { setLocale, type Locale } from '../lib/i18n';
 import { useLocale } from '../hooks/useLocale';
 import { t } from '../lib/i18n';
 import { useUpdater } from '../hooks/useUpdater';
+import { grantedPermissions, PERMISSION_CATALOGUE, type LoadedPlugin } from '../sdk/plugin';
+import { Building2 as BuildingIcon, Palette as PaletteIcon, SlidersHorizontal as SlidersIcon, KeyRound as KeyIcon, Activity as ActivityIcon } from 'lucide-react';
 
 interface AppSettings {
   theme: string;
@@ -589,12 +591,725 @@ function ScannerSettingsTab() {
   );
 }
 
+function PermissionPill({ label, sensitive }: { label: string; sensitive?: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-medium ${
+        sensitive
+          ? 'border-mvo-crimson/40 bg-mvo-crimsonDim text-mvo-crimsonBright'
+          : 'border-white/10 bg-white/[0.04] text-mvo-textDim'
+      }`}
+    >
+      {sensitive && <ShieldIcon className="h-3 w-3" />}
+      {label}
+    </span>
+  );
+}
+
+function PluginCard({ plugin, busy, onToggle }: { plugin: LoadedPlugin; busy: boolean; onToggle: (id: string, enabled: boolean) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const granted = grantedPermissions(plugin.manifest.permissions);
+  const enabled = plugin.enabled;
+
+  return (
+    <div
+      className={`rounded-xl border p-4 transition-colors ${
+        enabled
+          ? 'border-mvo-crimson/25 bg-mvo-crimsonDim'
+          : 'border-white/[0.06] bg-white/[0.02] opacity-70'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+              enabled ? 'bg-mvo-crimson/20 text-mvo-crimsonBright' : 'bg-white/[0.05] text-white/35'
+            }`}
+          >
+            <PuzzleIcon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="truncate text-[13px] font-semibold text-white">{plugin.manifest.name}</p>
+              <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-mvo-textMuted">
+                v{plugin.manifest.version}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider ${
+                  enabled ? 'text-mvo-crimsonBright' : 'text-white/30'
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${enabled ? 'bg-mvo-crimsonBright' : 'bg-white/25'}`} />
+                {enabled ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+            <p className="mt-1 line-clamp-2 text-[11.5px] text-mvo-textDim">
+              {plugin.manifest.description || 'No description provided.'}
+            </p>
+            {plugin.manifest.author && (
+              <p className="mt-1 text-[10.5px] text-mvo-textMuted">by {plugin.manifest.author}</p>
+            )}
+          </div>
+        </div>
+
+        <label className={`relative inline-flex shrink-0 items-center ${busy ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}>
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={busy}
+            onChange={() => onToggle(plugin.manifest.id, !enabled)}
+            className="peer sr-only"
+            aria-label={`Toggle ${plugin.manifest.name}`}
+          />
+          <div className="h-6 w-11 rounded-full bg-white/10 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white/70 after:transition-all peer-checked:bg-mvo-crimson peer-checked:after:translate-x-full peer-checked:after:border-white after:content-['']" />
+        </label>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {granted.length === 0 ? (
+          <span className="text-[10.5px] text-mvo-textMuted">No permissions requested</span>
+        ) : (
+          granted.map(p => <PermissionPill key={p.key} label={p.label} sensitive={p.sensitive} />)
+        )}
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="ml-1 inline-flex items-center gap-0.5 text-[10.5px] font-medium text-mvo-crimsonBright transition-colors hover:text-white"
+        >
+          {expanded ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
+          {expanded ? 'Hide details' : 'Permissions detail'}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="mt-3 space-y-1.5 rounded-lg border border-white/[0.06] bg-black/20 p-3">
+          {PERMISSION_CATALOGUE.map(p => {
+            const isGranted = plugin.manifest.permissions?.[p.key] === true;
+            return (
+              <div key={p.key} className="flex items-start gap-2">
+                {isGranted ? (
+                  <CheckCircleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-400" />
+                ) : (
+                  <span className="mt-[5px] h-3.5 w-3.5 shrink-0 rounded-full border border-white/15" />
+                )}
+                <div>
+                  <p className={`text-[11.5px] ${isGranted ? 'text-white/85' : 'text-white/35'}`}>{p.label}</p>
+                  <p className="text-[10px] text-mvo-textMuted">{p.description}</p>
+                </div>
+              </div>
+            );
+          })}
+          <p className="border-t border-white/[0.06] pt-1.5 font-mono text-[9.5px] text-mvo-textMuted break-all">
+            {plugin.path}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PluginsTab() {
+  const [plugins, setPlugins] = useState<LoadedPlugin[]>([]);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoadState('loading');
+    try {
+      const list = await invoke<LoadedPlugin[]>('list_plugins');
+      setPlugins(Array.isArray(list) ? list : []);
+      setLoadState('ready');
+      setError('');
+    } catch (e) {
+      setError(String(e));
+      setLoadState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const toggle = async (id: string, enabled: boolean) => {
+    setBusyId(id);
+    try {
+      await invoke('toggle_plugin', { pluginId: id, enabled });
+      setPlugins(prev => prev.map(p => (p.manifest.id === id ? { ...p, enabled } : p)));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const activeCount = plugins.filter(p => p.enabled).length;
+
+  return (
+    <div className="space-y-4">
+      <GlassCard className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 font-semibold text-white">
+              <PuzzleIcon className="h-5 w-5 text-mvo-crimsonBright" /> Plugins
+            </h3>
+            <p className="mt-1 text-xs text-mvo-textDim">
+              Extend MVO Hub with community additions for the sidebar, dashboard and game launch events.
+            </p>
+          </div>
+          <button onClick={load} disabled={loadState === 'loading'} className="btn-secondary flex items-center gap-2 text-xs">
+            <RefreshCwIcon className={`h-3.5 w-3.5 ${loadState === 'loading' ? 'animate-spin' : ''}`} /> Refresh
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+            <p className="text-[10px] uppercase tracking-wider text-mvo-textMuted">Installed</p>
+            <p className="mt-0.5 font-mono text-sm text-white">{plugins.length}</p>
+          </div>
+          <div className="rounded-xl border border-mvo-crimson/25 bg-mvo-crimsonDim p-3">
+            <p className="text-[10px] uppercase tracking-wider text-mvo-textMuted">Active</p>
+            <p className="mt-0.5 font-mono text-sm text-mvo-crimsonBright">{activeCount}</p>
+          </div>
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+            <p className="text-[10px] uppercase tracking-wider text-mvo-textMuted">Inactive</p>
+            <p className="mt-0.5 font-mono text-sm text-white">{plugins.length - activeCount}</p>
+          </div>
+        </div>
+
+        <p className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 font-mono text-[10px] text-mvo-textMuted break-all">
+          %APPDATA%\MVO Hub\plugins\
+        </p>
+      </GlassCard>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-mvo-crimson/30 bg-mvo-crimsonDim p-3">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-mvo-crimsonBright" />
+          <p className="text-xs text-mvo-crimsonBright break-all">{error}</p>
+        </div>
+      )}
+
+      {loadState === 'loading' && plugins.length === 0 ? (
+        <GlassCard className="flex items-center justify-center p-10">
+          <Loader2 className="h-6 w-6 animate-spin text-mvo-crimsonBright" />
+        </GlassCard>
+      ) : plugins.length === 0 ? (
+        <GlassCard className="p-10 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-mvo-crimson/25 bg-mvo-crimsonDim">
+            <PuzzleIcon className="h-6 w-6 text-mvo-crimsonBright" />
+          </div>
+          <p className="text-sm font-medium text-white">No plugins installed</p>
+          <p className="mx-auto mt-1 max-w-sm text-xs text-mvo-textDim">
+            Drop a folder containing a <span className="font-mono text-mvo-crimsonBright">manifest.json</span> into the
+            plugins directory above, then hit Refresh.
+          </p>
+        </GlassCard>
+      ) : (
+        <div className="space-y-3">
+          {plugins.map(plugin => (
+            <PluginCard key={plugin.manifest.id} plugin={plugin} busy={busyId === plugin.manifest.id} onToggle={toggle} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type EnterpriseTier = 'community' | 'team' | 'enterprise';
+
+interface EnterpriseBranding {
+  productName: string;
+  shortName: string;
+  primaryColor: string;
+  accentColor: string;
+  logoUrl: string;
+  supportUrl: string;
+}
+
+interface TenantProfileShape {
+  tenantId: string;
+  branding: EnterpriseBranding;
+  features: {
+    pluginsEnabled: boolean;
+    cloudSyncEnabled: boolean;
+    telemetryEnabled: boolean;
+    betaChannelsEnabled: boolean;
+  };
+  telemetryEndpoints: string[];
+  updatedAt: string;
+}
+
+interface LicenseViewShape {
+  status: {
+    valid: boolean;
+    tier: EnterpriseTier;
+    tenantId: string | null;
+    tenantName: string | null;
+    expiresAt: string | null;
+    daysRemaining: number | null;
+    reason: string | null;
+  };
+  warning: string | null;
+  branding: EnterpriseBranding;
+  tier: EnterpriseTier;
+}
+
+interface TelemetryRecordShape {
+  event: string;
+  name: string;
+  metric: { kind: string; value: number } | null;
+  build: string;
+  at: string;
+}
+
+/** Mirrors the Rust `#rrggbb` rule — duplicated so the form can validate live. */
+function isHexColor(value: string): boolean {
+  return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+/** Mirrors Rust's `is_trusted_url`: absolute HTTPS only. */
+function isTrustedUrl(value: string): boolean {
+  if (!value.startsWith('https://')) return false;
+  const rest = value.slice('https://'.length);
+  if (rest.length === 0 || rest.startsWith('/')) return false;
+  return !/[\s\\]/.test(rest);
+}
+
+const TIER_LABELS: Record<EnterpriseTier, string> = {
+  community: 'Community',
+  team: 'Team',
+  enterprise: 'Enterprise',
+};
+
+function EnterpriseTab() {
+  const [license, setLicense] = useState<LicenseViewShape | null>(null);
+  const [profile, setProfile] = useState<TenantProfileShape | null>(null);
+  const [token, setToken] = useState('');
+  const [telemetry, setTelemetry] = useState<TelemetryRecordShape[]>([]);
+  const [summary, setSummary] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      const [lic, prof, events] = await Promise.all([
+        invoke<LicenseViewShape>('enterprise_get_license'),
+        invoke<TenantProfileShape>('enterprise_get_profile'),
+        invoke<TelemetryRecordShape[]>('enterprise_telemetry_snapshot'),
+      ]);
+      setLicense(lic);
+      setProfile(prof);
+      setTelemetry(Array.isArray(events) ? events : []);
+      setError('');
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const tier: EnterpriseTier = license?.tier ?? 'community';
+  const canWhiteLabel = tier === 'enterprise';
+  const canTelemetry = tier === 'team' || tier === 'enterprise';
+
+  const patchBranding = (patch: Partial<EnterpriseBranding>) => {
+    setProfile(p => (p ? { ...p, branding: { ...p.branding, ...patch } } : p));
+  };
+  const patchFeature = (key: keyof TenantProfileShape['features'], value: boolean) => {
+    setProfile(p => (p ? { ...p, features: { ...p.features, [key]: value } } : p));
+  };
+
+  // Client-side validation mirrors the backend so the form highlights fields
+  // before a round-trip; the backend remains authoritative.
+  const fieldErrors: Record<string, string> = {};
+  if (profile) {
+    if (!/^[A-Za-z0-9_-]+$/.test(profile.tenantId)) {
+      fieldErrors.tenantId = "Letters, digits, '-' and '_' only";
+    }
+    if (!profile.branding.productName.trim()) fieldErrors.productName = 'Required';
+    else if (profile.branding.productName.length > 40) fieldErrors.productName = 'Max 40 characters';
+    if (!profile.branding.shortName.trim()) fieldErrors.shortName = 'Required';
+    else if (profile.branding.shortName.length > 12) fieldErrors.shortName = 'Max 12 characters';
+    if (!isHexColor(profile.branding.primaryColor)) fieldErrors.primaryColor = 'Use #rrggbb';
+    if (!isHexColor(profile.branding.accentColor)) fieldErrors.accentColor = 'Use #rrggbb';
+    if (profile.branding.logoUrl && !isTrustedUrl(profile.branding.logoUrl)) {
+      fieldErrors.logoUrl = 'Must be an https:// URL';
+    }
+    if (profile.branding.supportUrl && !isTrustedUrl(profile.branding.supportUrl)) {
+      fieldErrors.supportUrl = 'Must be an https:// URL';
+    }
+  }
+  const hasErrors = Object.keys(fieldErrors).length > 0;
+
+  const installLicense = async () => {
+    setBusy('license');
+    setError('');
+    setNotice('');
+    try {
+      const next = await invoke<LicenseViewShape>('enterprise_install_license', { token });
+      setLicense(next);
+      setToken('');
+      setNotice(
+        next.status.valid
+          ? `Licence installed — ${TIER_LABELS[next.tier]} tier.`
+          : `Licence rejected: ${next.status.reason ?? 'unknown reason'}`,
+      );
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!profile) return;
+    setBusy('profile');
+    setError('');
+    setNotice('');
+    try {
+      const saved = await invoke<TenantProfileShape>('enterprise_set_profile', { profile });
+      setProfile(saved);
+      await load();
+      setNotice('Tenant profile saved.');
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const drainTelemetry = async () => {
+    setBusy('drain');
+    setError('');
+    setNotice('');
+    try {
+      const drained = await invoke<TelemetryRecordShape[]>('enterprise_drain_telemetry');
+      setTelemetry([]);
+      setNotice(`Exported ${Array.isArray(drained) ? drained.length : 0} telemetry event(s).`);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runDiagnostics = async () => {
+    setBusy('diagnostics');
+    setError('');
+    try {
+      const bundle = await invoke<Record<string, unknown>>('enterprise_diagnostics');
+      const lines = [
+        `MVO ${bundle.appVersion} on ${bundle.os}`,
+        `tier: ${bundle.tier} (tenant: ${bundle.tenantId ?? 'none'})`,
+        `plugins: ${bundle.pluginCount}, saves: ${bundle.trackedSaves}, achievements: ${bundle.achievementsUnlocked}`,
+        `pending uploads: ${bundle.pendingUploads}, active sessions: ${bundle.activeSessions}`,
+        `generated: ${bundle.generatedAt}`,
+      ];
+      setSummary(lines.join('\n'));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!license || !profile) {
+    return (
+      <GlassCard className="flex items-center justify-center p-10">
+        <Loader2 className="h-6 w-6 animate-spin text-mvo-crimsonBright" />
+      </GlassCard>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Licence status */}
+      <GlassCard className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 font-semibold text-white">
+              <BuildingIcon className="h-5 w-5 text-mvo-crimsonBright" /> Licence
+            </h3>
+            <p className="mt-1 text-xs text-mvo-textDim">
+              Offline-verified via Ed25519. No licence server is contacted.
+            </p>
+          </div>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold ${
+              license.status.valid
+                ? 'border-mvo-crimson/35 bg-mvo-crimsonDim text-mvo-crimsonBright'
+                : 'border-white/10 bg-white/[0.03] text-white/50'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${license.status.valid ? 'bg-mvo-crimsonBright' : 'bg-white/30'}`} />
+            {TIER_LABELS[tier]}
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Tenant', value: license.status.tenantName ?? '—' },
+            { label: 'Expires', value: license.status.expiresAt ? new Date(license.status.expiresAt).toLocaleDateString() : 'Perpetual' },
+            { label: 'Days left', value: license.status.daysRemaining != null ? String(license.status.daysRemaining) : '—' },
+            { label: 'White-label', value: canWhiteLabel ? 'Enabled' : 'Locked' },
+          ].map(tile => (
+            <div key={tile.label} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+              <p className="text-[10px] uppercase tracking-wider text-mvo-textMuted">{tile.label}</p>
+              <p className="mt-0.5 truncate font-mono text-[12.5px] text-white">{tile.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {license.warning && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+            <p className="text-xs text-amber-300">{license.warning}</p>
+          </div>
+        )}
+        {!license.status.valid && license.status.reason && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <ShieldIcon className="h-4 w-4 shrink-0 text-white/40" />
+            <p className="text-xs text-mvo-textDim">{license.status.reason}</p>
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <input
+            value={token}
+            onChange={e => setToken(e.target.value)}
+            placeholder="Paste signed licence token"
+            aria-label="Licence token"
+            className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/25 px-3 py-2 font-mono text-[11.5px] text-white outline-none transition-colors focus:border-mvo-crimson/50"
+          />
+          <button
+            onClick={installLicense}
+            disabled={!token.trim() || busy === 'license'}
+            className="btn-primary flex items-center justify-center gap-2 text-xs disabled:opacity-50"
+          >
+            {busy === 'license' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyIcon className="h-3.5 w-3.5" />}
+            Install
+          </button>
+        </div>
+      </GlassCard>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl border border-mvo-crimson/30 bg-mvo-crimsonDim p-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-mvo-crimsonBright" />
+          <p className="break-all text-xs text-mvo-crimsonBright">{error}</p>
+        </div>
+      )}
+      {notice && !error && (
+        <div className="flex items-center gap-2 rounded-xl border border-green-400/25 bg-green-400/[0.07] p-3">
+          <CheckCircleIcon className="h-4 w-4 shrink-0 text-green-400" />
+          <p className="text-xs text-green-400">{notice}</p>
+        </div>
+      )}
+
+      {/* White-label */}
+      <GlassCard className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h3 className="flex items-center gap-2 font-semibold text-white">
+            <PaletteIcon className="h-5 w-5 text-mvo-crimsonBright" /> White-label
+          </h3>
+          {!canWhiteLabel && (
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10.5px] text-white/45">
+              Requires Enterprise tier
+            </span>
+          )}
+        </div>
+        {!canWhiteLabel && (
+          <p className="mt-2 text-[11.5px] text-mvo-textDim">
+            Branding can be configured now but is only applied with an Enterprise licence.
+          </p>
+        )}
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {([
+            { key: 'productName' as const, label: 'Product name', placeholder: 'MVO Hub' },
+            { key: 'shortName' as const, label: 'Short name', placeholder: 'MVO' },
+            { key: 'logoUrl' as const, label: 'Logo URL', placeholder: 'https://example.com/logo.png' },
+            { key: 'supportUrl' as const, label: 'Support URL', placeholder: 'https://example.com/support' },
+          ]).map(field => (
+            <div key={field.key}>
+              <label htmlFor={`ent-${field.key}`} className="mb-1 block text-[11px] font-medium text-mvo-textDim">
+                {field.label}
+              </label>
+              <input
+                id={`ent-${field.key}`}
+                value={profile.branding[field.key]}
+                onChange={e => patchBranding({ [field.key]: e.target.value })}
+                placeholder={field.placeholder}
+                className={`w-full rounded-xl border bg-black/25 px-3 py-2 text-[12px] text-white outline-none transition-colors focus:border-mvo-crimson/50 ${
+                  fieldErrors[field.key] ? 'border-mvo-crimson/60' : 'border-white/10'
+                }`}
+              />
+              {fieldErrors[field.key] && (
+                <p className="mt-1 text-[10.5px] text-mvo-crimsonBright">{fieldErrors[field.key]}</p>
+              )}
+            </div>
+          ))}
+
+          {(['primaryColor', 'accentColor'] as const).map(key => (
+            <div key={key}>
+              <label htmlFor={`ent-${key}`} className="mb-1 block text-[11px] font-medium text-mvo-textDim">
+                {key === 'primaryColor' ? 'Primary colour' : 'Accent colour'}
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id={`ent-${key}`}
+                  value={profile.branding[key]}
+                  onChange={e => patchBranding({ [key]: e.target.value })}
+                  className={`min-w-0 flex-1 rounded-xl border bg-black/25 px-3 py-2 font-mono text-[12px] text-white outline-none transition-colors focus:border-mvo-crimson/50 ${
+                    fieldErrors[key] ? 'border-mvo-crimson/60' : 'border-white/10'
+                  }`}
+                />
+                <span
+                  className="h-8 w-8 shrink-0 rounded-lg border border-white/15"
+                  style={{ background: isHexColor(profile.branding[key]) ? profile.branding[key] : 'transparent' }}
+                  aria-hidden="true"
+                />
+              </div>
+              {fieldErrors[key] && (
+                <p className="mt-1 text-[10.5px] text-mvo-crimsonBright">{fieldErrors[key]}</p>
+              )}
+            </div>
+          ))}
+
+          <div className="sm:col-span-2">
+            <label htmlFor="ent-tenantId" className="mb-1 block text-[11px] font-medium text-mvo-textDim">
+              Tenant id
+            </label>
+            <input
+              id="ent-tenantId"
+              value={profile.tenantId}
+              onChange={e => setProfile(p => (p ? { ...p, tenantId: e.target.value } : p))}
+              className={`w-full rounded-xl border bg-black/25 px-3 py-2 font-mono text-[12px] text-white outline-none transition-colors focus:border-mvo-crimson/50 ${
+                fieldErrors.tenantId ? 'border-mvo-crimson/60' : 'border-white/10'
+              }`}
+            />
+            {fieldErrors.tenantId && (
+              <p className="mt-1 text-[10.5px] text-mvo-crimsonBright">{fieldErrors.tenantId}</p>
+            )}
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* Feature switches */}
+      <GlassCard className="p-5">
+        <h3 className="flex items-center gap-2 font-semibold text-white">
+          <SlidersIcon className="h-5 w-5 text-mvo-crimsonBright" /> Feature switches
+        </h3>
+        <div className="mt-2 divide-y divide-white/[0.05]">
+          {([
+            { key: 'pluginsEnabled' as const, label: 'Third-party plugins', desc: 'Allow loading plugins from the plugins directory' },
+            { key: 'cloudSyncEnabled' as const, label: 'Cloud sync', desc: 'Enable save and achievement synchronisation' },
+            { key: 'telemetryEnabled' as const, label: 'Telemetry', desc: 'Queue diagnostic events for export (opt-in)' },
+            { key: 'betaChannelsEnabled' as const, label: 'Beta channels', desc: 'Allow prerelease update channels' },
+          ]).map(item => (
+            // The whole row is the label, so a click anywhere toggles the switch.
+            <label
+              key={item.key}
+              htmlFor={`ent-feature-${item.key}`}
+              className="flex cursor-pointer items-center justify-between py-3"
+            >
+              <div>
+                <p className="text-[12.5px] font-medium text-white">{item.label}</p>
+                <p className="text-[10.5px] text-mvo-textDim">{item.desc}</p>
+              </div>
+              <span className="relative inline-flex items-center">
+                <input
+                  id={`ent-feature-${item.key}`}
+                  type="checkbox"
+                  checked={profile.features[item.key]}
+                  onChange={e => patchFeature(item.key, e.target.checked)}
+                  className="peer sr-only"
+                  aria-label={item.label}
+                />
+                {/* `pointer-events-none` so the visual track never swallows the
+                    click meant for the (visually hidden) checkbox. */}
+                <span className="pointer-events-none h-6 w-11 rounded-full bg-white/10 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white/70 after:transition-all peer-checked:bg-mvo-crimson peer-checked:after:translate-x-full after:content-['']" />
+              </span>
+            </label>
+          ))}
+        </div>
+        {profile.features.telemetryEnabled && !canTelemetry && (
+          <p className="mt-1 text-[10.5px] text-amber-400">
+            Telemetry is queued but not exported until a Team or Enterprise licence is installed.
+          </p>
+        )}
+
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            onClick={saveProfile}
+            disabled={hasErrors || busy === 'profile'}
+            className="btn-primary flex items-center gap-2 text-xs disabled:opacity-50"
+          >
+            {busy === 'profile' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircleIcon className="h-3.5 w-3.5" />}
+            Save profile
+          </button>
+          {hasErrors && <span className="text-[10.5px] text-mvo-crimsonBright">Fix the highlighted fields first</span>}
+        </div>
+      </GlassCard>
+
+      {/* Telemetry & diagnostics */}
+      <GlassCard className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 font-semibold text-white">
+            <ActivityIcon className="h-5 w-5 text-mvo-crimsonBright" /> Telemetry &amp; diagnostics
+          </h3>
+          <span className="font-mono text-[10.5px] text-mvo-textMuted">{telemetry.length} queued</span>
+        </div>
+        <p className="mt-1 text-[11.5px] text-mvo-textDim">
+          Events carry only a fixed name and numeric metrics — never file paths, game names or messages.
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button onClick={runDiagnostics} disabled={busy === 'diagnostics'} className="btn-secondary flex items-center gap-2 text-xs">
+            {busy === 'diagnostics' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ActivityIcon className="h-3.5 w-3.5" />}
+            Generate diagnostics
+          </button>
+          <button
+            onClick={drainTelemetry}
+            disabled={busy === 'drain' || telemetry.length === 0 || !canTelemetry}
+            className="btn-secondary flex items-center gap-2 text-xs disabled:opacity-40"
+            title={!canTelemetry ? 'Requires Team or Enterprise tier' : undefined}
+          >
+            {busy === 'drain' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadIcon className="h-3.5 w-3.5" />}
+            Export telemetry
+          </button>
+        </div>
+
+        {summary && (
+          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-xl border border-white/[0.06] bg-black/30 p-3 font-mono text-[10.5px] text-mvo-textDim">
+            {summary}
+          </pre>
+        )}
+
+        {telemetry.length > 0 && (
+          <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/15 px-3">
+            {telemetry.slice(-8).reverse().map((record, i) => (
+              <div key={`${record.name}-${i}`} className="flex items-center justify-between border-t border-white/[0.05] py-2 text-[11px] first:border-t-0">
+                <span className="font-mono text-white/75">{record.name}</span>
+                <span className="text-mvo-textMuted">
+                  {record.metric ? `${record.metric.kind}: ${record.metric.value}` : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </GlassCard>
+    </div>
+  );
+}
+
 export function Settings({ settings: parentSettings, onSettingsChange, user, defaultTab }: { settings?: any; onSettingsChange?: (s: any) => void; user?: any; defaultTab?: string } = {}) {
   useLocale();
   const [settings, setSettings] = useState<any>(parentSettings || {});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'sync' | 'advanced' | 'updates' | 'scanner' | 'account'>((defaultTab as any) || 'general');
+  const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'sync' | 'advanced' | 'updates' | 'scanner' | 'plugins' | 'enterprise' | 'account'>((defaultTab as any) || 'general');
 
   useEffect(() => {
     if (parentSettings) setSettings(parentSettings);
@@ -662,6 +1377,8 @@ export function Settings({ settings: parentSettings, onSettingsChange, user, def
     { id: 'advanced', label: t('settings.advanced'), icon: ShieldIcon },
     { id: 'updates', label: 'Updates', icon: RefreshCwIcon },
     { id: 'scanner', label: 'Scanner', icon: DatabaseIcon },
+    { id: 'plugins', label: 'Plugins', icon: PuzzleIcon },
+    { id: 'enterprise', label: 'Enterprise', icon: BuildingIcon },
     { id: 'account', label: 'Account', icon: UserIcon },
   ];
 
@@ -1068,6 +1785,14 @@ export function Settings({ settings: parentSettings, onSettingsChange, user, def
 
       {activeTab === 'scanner' && (
         <ScannerSettingsTab />
+      )}
+
+      {activeTab === 'plugins' && (
+        <PluginsTab />
+      )}
+
+      {activeTab === 'enterprise' && (
+        <EnterpriseTab />
       )}
 
       {activeTab === 'account' && (

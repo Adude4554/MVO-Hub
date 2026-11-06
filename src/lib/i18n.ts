@@ -143,6 +143,7 @@ const translations: Record<Locale, Record<string, string>> = {
     "library.sortRecent": "Sort by Recent",
     "library.play": "Play",
     "library.openFolder": "Open folder",
+    "library.details": "View game details",
     "library.steamDetected": "Steam detected",
     "library.steamNotFound": "Steam not found",
     "library.failedLoad": "Failed to load games",
