@@ -1,23 +1,131 @@
 name: Release
 
+# Triggered by annotated version tags (v0.4.0, v0.4.0-beta.1, ...).
+# The tag drives the app version: the workflow asserts that the tag, the
+# workspace version and tauri.conf.json agree before anything is built, because
+# a mismatch ships a binary that reports a different version than the manifest
+# it publishes - which makes the updater loop forever.
 on:
   push:
     tags:
       - "v*"
 
+# Least privilege: only the release job needs write, and only for contents.
+permissions:
+  contents: read
+
+concurrency:
+  # Never run two releases for the same tag; a second publish would race the
+  # first on latest.json and could leave the manifest pointing at a deleted asset.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
-  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+  CARGO_TERM_COLOR: always
 
 jobs:
-  release:
+  # ---------------------------------------------------------------------------
+  # Gate: cheap, fast checks that fail before spending CI minutes on a build.
+  # ---------------------------------------------------------------------------
+  preflight:
+    name: Preflight checks
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require an annotated tag
+        shell: pwsh
+        run: |
+          # `git cat-file -t` returns "tag" for annotated tags and "commit" for
+          # lightweight ones. Lightweight tags carry no message and are easy to
+          # create by accident, so releases require the annotated form.
+          $type = git cat-file -t "${{ github.ref }}"
+          if ($type -ne "tag") {
+            Write-Error "Tag ${{ github.ref_name }} is not annotated (type: $type). Create it with: git tag -a vX.Y.Z -m '...'"
+            exit 1
+          }
+          Write-Output "Tag is annotated."
+
+      - name: Derive and validate version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') {
+            Write-Error "Tag '$tag' is not a valid version tag (expected vX.Y.Z or vX.Y.Z-prerelease)."
+            exit 1
+          }
+          $version = $tag.Substring(1)
+          Write-Output "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Output "Derived version: $version"
+
+      - name: Assert versions agree
+        shell: pwsh
+        run: |
+          $expected = "${{ steps.version.outputs.version }}"
+          $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $conf = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          # Cargo.toml: read the [package] version line without a TOML parser.
+          $cargo = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' |
+            Select-Object -First 1).Matches[0].Groups[1].Value
+
+          $problems = @()
+          if ($pkg   -ne $expected) { $problems += "package.json says $pkg" }
+          if ($conf  -ne $expected) { $problems += "tauri.conf.json says $conf" }
+          if ($cargo -ne $expected) { $problems += "Cargo.toml says $cargo" }
+          if ($problems.Count -gt 0) {
+            Write-Error "Version mismatch with tag '$expected': $($problems -join '; '). Bump all three before tagging."
+            exit 1
+          }
+          Write-Output "All version files agree on $expected."
+
+      - name: Verify signing secrets are configured
+        shell: pwsh
+        env:
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          # Only presence is checked here - secrets are never echoed, and they
+          # are exposed to a single step each below rather than job-wide.
+          $missing = @()
+          if ([string]::IsNullOrWhiteSpace($env:MANIFEST_SIGNING_KEY)) {
+            $missing += "MANIFEST_SIGNING_KEY (generate: cargo run --bin sign_manifest -- keygen)"
+          }
+          if ($env:MANIFEST_SIGNING_KEY) {
+            try {
+              $len = [Convert]::FromBase64String($env:MANIFEST_SIGNING_KEY.Trim()).Length
+              if ($len -ne 32) { $missing += "MANIFEST_SIGNING_KEY is $len bytes, must be 32" }
+            } catch {
+              $missing += "MANIFEST_SIGNING_KEY is not valid base64"
+            }
+          }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            $missing += "TAURI_SIGNING_PRIVATE_KEY (generate: npx tauri signer generate)"
+          }
+          if ($missing.Count -gt 0) {
+            Write-Error "Missing or invalid repository secrets: $($missing -join '; ')"
+            exit 1
+          }
+          Write-Output "Signing secrets present and well-formed."
+
+  # ---------------------------------------------------------------------------
+  # Build + sign. Windows only: that is the only platform the updater supports
+  # today (validate_manifest requires windows-x86_64).
+  # ---------------------------------------------------------------------------
+  release:
+    name: Build & publish
+    needs: preflight
+    runs-on: windows-latest
+    timeout-minutes: 60
     permissions:
-      contents: write
+      contents: write   # create the GitHub Release and upload assets
+    outputs:
+      installer_name: ${{ steps.bundle.outputs.installer_name }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -32,108 +140,84 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             src-tauri/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: |
+            ${{ runner.os }}-cargo-release-
             ${{ runner.os }}-cargo-
 
-      - name: Verify signing secrets are configured
-        shell: pwsh
-        env:
-          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:MANIFEST_SIGNING_KEY)) {
-            Write-Error "Repository secret MANIFEST_SIGNING_KEY is not set. Generate a keypair with: cargo run --bin sign_manifest -- keygen"
-            exit 1
-          }
-          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
-            Write-Error "Repository secret TAURI_SIGNING_PRIVATE_KEY is not set. Generate a new key with: npx tauri signer generate"
-            exit 1
-          }
-          Write-Output "Signing secrets present."
-
-      - name: Run cargo test
-        run: cargo test
-
-      - name: Install dependencies
+      - name: Install npm dependencies
         run: npm ci
 
+      # The full gate runs on the exact commit being released, so a tag can
+      # never publish a build that would fail CI on main.
+      - name: Run Rust tests
+        run: cargo test
+        working-directory: src-tauri
+
+      - name: Type-check frontend
+        run: npx tsc --noEmit
+
+      - name: Build frontend
+        run: npm run build
+
       - name: Build Tauri app
+        shell: pwsh
         run: npx tauri build
         env:
+          # Exposed only to the bundler step that needs it.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Find NSIS installer
-        id: find_installer
+      - name: Locate and verify installers
+        id: bundle
         shell: pwsh
         run: |
-          $installer = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis/" -Filter "*.exe" | Select-Object -First 1
-          if (-not $installer) {
-            Write-Error "No NSIS installer found"
+          # Prefer NSIS: it is the asset the manifest points at.
+          $nsis = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue |
+            Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $nsis) {
+            Write-Error "No NSIS installer was produced. Check the tauri build output above."
             exit 1
           }
-          Write-Host "Found installer: $($installer.FullName)"
-          echo "installer_path=$($installer.FullName)" >> $env:GITHUB_OUTPUT
-          echo "installer_name=$($installer.Name)" >> $env:GITHUB_OUTPUT
+          # Mirrors the app's own floor: a sub-1MB installer is a build accident.
+          if ($nsis.Length -lt 1048576) {
+            Write-Error "Installer $($nsis.Name) is only $($nsis.Length) bytes - refusing to publish."
+            exit 1
+          }
+          Write-Output "NSIS installer: $($nsis.FullName) ($($nsis.Length) bytes)"
+          Write-Output "installer_path=$($nsis.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Output "installer_name=$($nsis.Name)" >> $env:GITHUB_OUTPUT
 
-      - name: Calculate SHA-256 hash
-        id: hash
-        shell: pwsh
-        run: |
-          $hash = (Get-FileHash -Path "${{ steps.find_installer.outputs.installer_path }}" -Algorithm SHA256).Hash.ToLower()
-          Write-Host "SHA-256: $hash"
-          echo "sha256=$hash" >> $env:GITHUB_OUTPUT
-
-      - name: Get file size
-        id: filesize
-        shell: pwsh
-        run: |
-          $size = (Get-Item "${{ steps.find_installer.outputs.installer_path }}").Length
-          Write-Host "File size: $size"
-          echo "size=$size" >> $env:GITHUB_OUTPUT
-
-      - name: Get version from tag
-        id: version
-        shell: pwsh
-        run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag -replace '^v', ''
-          Write-Host "Version: $version"
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-
-      - name: Generate unified update manifest
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $sha256 = "${{ steps.hash.outputs.sha256 }}"
-          $fileSize = "${{ steps.filesize.outputs.size }}"
-          $tagName = "${{ github.ref_name }}"
-          $installerName = "${{ steps.find_installer.outputs.installer_name }}"
-          $pubDate = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss'Z'" -AsUTC)
-
-          # Single unified manifest format consumed by src-tauri/src/updater.rs.
-          # NOTE: no "signature" field here - it is added by the Ed25519 signing step.
-          $manifest = [ordered]@{
-            version    = $version
-            notes      = "Release $version"
-            pub_date   = $pubDate
-            force      = $false
-            platforms  = @{
-              "windows-x86_64" = @{
-                url       = "https://github.com/Adude4554/MVO-Hub/releases/download/$tagName/$installerName"
-                file_size = [int64]$fileSize
-                sha256    = $sha256
-              }
-            }
+          $msi = Get-ChildItem "src-tauri/target/release/bundle/msi" -Filter "*.msi" -ErrorAction SilentlyContinue |
+            Sort-Object Length -Descending | Select-Object -First 1
+          if ($msi) {
+            Write-Output "MSI: $($msi.FullName) ($($msi.Length) bytes)"
+            Write-Output "msi_path=$($msi.FullName)" >> $env:GITHUB_OUTPUT
+            Write-Output "msi_name=$($msi.Name)" >> $env:GITHUB_OUTPUT
           }
 
+      - name: Generate unsigned update manifest
+        id: manifest
+        shell: pwsh
+        run: |
           $out = Join-Path $env:RUNNER_TEMP "latest.json"
-          $manifest | ConvertTo-Json -Depth 5 | Out-File -FilePath $out -Encoding utf8
-          Write-Host "Generated unsigned manifest at $out :"
+          $sha = (Get-FileHash -Path "${{ steps.bundle.outputs.installer_path }}" -Algorithm SHA256).Hash.ToLower()
+          $size = (Get-Item "${{ steps.bundle.outputs.installer_path }}").Length
+          # The generator validates the manifest with the same code the app uses,
+          # so a malformed version or a bad hash fails here rather than at runtime.
+          cargo run --quiet --release --bin gen_update_manifest -- `
+            --version "${{ needs.preflight.outputs.version }}" `
+            --tag "${{ github.ref_name }}" `
+            --asset "${{ steps.bundle.outputs.installer_name }}" `
+            --sha256 $sha `
+            --size $size `
+            --notes "Release ${{ needs.preflight.outputs.version }}" `
+            --out $out
           Get-Content $out
 
       - name: Sign manifest (Ed25519)
@@ -141,39 +225,59 @@ jobs:
         env:
           MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
         run: |
-          $in = Join-Path $env:RUNNER_TEMP "latest.json"
-          # cargo run signs in place and self-verifies against the public key
-          # embedded in updater.rs - a seed/pubkey mismatch fails here, before
-          # anything is published.
-          cargo run --release --bin sign_manifest -- sign --in $in --out $in
-          Write-Host "Signed manifest:"
-          Get-Content $in
+          $manifest = Join-Path $env:RUNNER_TEMP "latest.json"
+          # sign_manifest self-verifies against the public key embedded in
+          # updater.rs, so a seed/pubkey mismatch aborts before publishing.
+          cargo run --quiet --release --bin sign_manifest -- sign --in $manifest --out $manifest
+          cargo run --quiet --release --bin sign_manifest -- verify --in $manifest
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
+          name: MVO Hub ${{ needs.preflight.outputs.version }}
           generate_release_notes: true
+          # The signed manifest is attached so the release is self-describing;
+          # the app reads the copy committed to main.
           files: |
-            ${{ steps.find_installer.outputs.installer_path }}
+            ${{ steps.bundle.outputs.installer_path }}
             ${{ runner.temp }}/latest.json
+            ${{ steps.bundle.outputs.msi_path }}
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit latest.json to main
+      - name: Commit signed manifest to main
         shell: pwsh
         run: |
+          $manifest = Join-Path $env:RUNNER_TEMP "latest.json"
+          # Copy out of RUNNER_TEMP first: the file must not exist in the work
+          # tree when we switch branches, or checkout will refuse.
+          $staged = Join-Path $env:RUNNER_TEMP "latest.committed.json"
+          Copy-Item $manifest $staged -Force
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
-          git checkout main
-          git pull origin main
-          # The signed manifest was generated in RUNNER_TEMP, so the working
-          # tree is clean at this point and checkout cannot be blocked by it.
-          Copy-Item (Join-Path $env:RUNNER_TEMP "latest.json") latest.json -Force
+          git checkout -B main origin/main
+
+          Copy-Item $staged latest.json -Force
           git add latest.json
           if (git diff --cached --quiet) {
-            Write-Host "latest.json unchanged - nothing to commit"
-          } else {
-            git commit -m "Update latest.json for ${{ github.ref_name }}"
-            git push origin main
+            Write-Output "latest.json unchanged - nothing to commit."
+            exit 0
           }
+          git commit -m "chore(release): publish latest.json for ${{ github.ref_name }}"
+          # Retry: main may have moved while the build ran.
+          for ($i = 1; $i -le 3; $i++) {
+            git pull --rebase origin main
+            git push origin main
+            if ($LASTEXITCODE -eq 0) { break }
+            Write-Output "Push attempt $i failed; retrying..."
+            Start-Sleep -Seconds 5
+          }
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Could not push latest.json after 3 attempts."
+            exit 1
+          }
+          Write-Output "Published latest.json to main."

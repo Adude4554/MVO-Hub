@@ -47,9 +47,23 @@ jobs:
         run: cargo test
         working-directory: src-tauri
 
+      - name: Type-check frontend
+        run: npx tsc --noEmit
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        # The suite runs against the Vite test harness (no Tauri backend);
+        # playwright.config.ts starts the dev:test server on port 1421.
+        run: npx playwright test
+
       - name: Build Tauri app
         run: npx tauri build
         env:
+          # PRs from forks do not receive secrets; `tauri build` still succeeds
+          # without them because createUpdaterArtifacts is false. Release
+          # signing happens only in release.yml.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload MSI artifact

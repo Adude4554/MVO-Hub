@@ -226,12 +226,48 @@ pub fn is_version_newer(local: &str, remote: &str) -> bool {
 // Manifest validation
 // ---------------------------------------------------------------------------
 
+/// `major.minor.patch` with an optional `-pre.release` suffix.
+///
+/// Rejects `+build` metadata, which `parse_version` ignores — accepting it
+/// would let the manifest advertise a version the comparison logic treats as
+/// something else.
+pub fn is_valid_manifest_version(version: &str) -> bool {
+    let (numeric, pre) = match version.split_once('-') {
+        Some((n, p)) => (n, Some(p)),
+        None => (version, None),
+    };
+
+    let mut segments = numeric.split('.');
+    let count = segments.clone().count();
+    if !(2..=3).contains(&count) {
+        return false;
+    }
+    if !segments.all(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())) {
+        return false;
+    }
+
+    match pre {
+        None => true,
+        Some(p) => {
+            !p.is_empty()
+                && !p.contains('+')
+                && p.split('.')
+                    .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_alphanumeric()))
+        }
+    }
+}
+
 pub fn validate_manifest(manifest: &UpdateManifest) -> Result<(), String> {
     if manifest.version.is_empty() {
         return Err("Manifest version is empty".into());
     }
 
-    if !manifest.version.bytes().all(|b| b.is_ascii_digit() || b == b'.' || b == b'-') {
+    // Accept `X.Y.Z` plus a SemVer-style pre-release suffix (`0.4.0-beta.1`).
+    // `is_version_newer`/`parse_version` already understand pre-releases, so
+    // rejecting them here would make a correctly-ordered beta undeliverable.
+    // Build metadata (`+build`) stays rejected: it is not ordering-relevant and
+    // `parse_version` ignores it, so shipping it would be silently misleading.
+    if !is_valid_manifest_version(&manifest.version) {
         return Err(format!(
             "Manifest version '{}' contains invalid characters",
             manifest.version
@@ -860,6 +896,64 @@ mod tests {
         };
         let err = validate_manifest(&m).unwrap_err();
         assert!(err.contains("invalid characters"));
+    }
+
+    #[test]
+    fn manifest_version_accepts_releases_and_pre_releases() {
+        for ok in ["0.4.0", "1.0", "0.4.0-beta.1", "0.4.0-rc1", "2.0.0-alpha"] {
+            assert!(is_valid_manifest_version(ok), "'{}' should be accepted", ok);
+        }
+    }
+
+    #[test]
+    fn manifest_version_rejects_build_metadata_and_junk() {
+        for bad in [
+            "",           // empty
+            "0.4.0+build", // build metadata is not ordering-relevant
+            "0.4.0-beta+build",
+            "v0.4.0",      // tag prefix must be stripped
+            "0.4.0.1",     // four segments
+            "0.4",         // too few? no: two segments are allowed
+            "0.4.0-",      // empty pre-release
+            "0.4.0-beta..1",
+            "0.4.0 beta",  // whitespace
+            "abc",
+        ] {
+            let expected_ok = bad == "0.4";
+            assert_eq!(
+                is_valid_manifest_version(bad),
+                expected_ok,
+                "'{}' acceptance mismatch",
+                bad
+            );
+        }
+    }
+
+    #[test]
+    fn pre_release_manifest_validates_end_to_end() {
+        // Regression: a pre-release used to be *comparable* by is_version_newer
+        // but rejected by validate_manifest, so a beta could never ship.
+        let mut platforms = HashMap::new();
+        platforms.insert(
+            "windows-x86_64".to_string(),
+            PlatformInfo {
+                url: "https://example.com/app.exe".into(),
+                file_size: 2_000_000,
+                sha256: "a".repeat(64),
+                signature: String::new(),
+            },
+        );
+        let m = UpdateManifest {
+            version: "0.4.0-beta.1".into(),
+            notes: String::new(),
+            pub_date: "2026-01-01T00:00:00Z".into(),
+            force: false,
+            platforms,
+        };
+
+        assert!(validate_manifest(&m).is_ok(), "a beta must be deliverable");
+        assert!(is_version_newer("0.3.0", "0.4.0-beta.1"));
+        assert!(is_version_newer("0.4.0-beta.1", "0.4.0"));
     }
 
     #[test]
