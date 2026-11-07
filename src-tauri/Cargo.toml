@@ -1,6 +1,6 @@
 [package]
 name = "project-mvo-app"
-version = "0.4.0"
+version = "0.5.0"
 description = "Project MVO"
 authors = ["Project MVO"]
 edition = "2021"
@@ -46,6 +46,7 @@ urlencoding = "2"
 hex = "0.4"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 discord-rich-presence = "1.1.0"
+flate2 = "1.0"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
 tauri-plugin-process = "2"
